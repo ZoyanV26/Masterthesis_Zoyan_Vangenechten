@@ -1,11 +1,13 @@
 import rasterio
-from rasterio.sample import sample_gen
+import rasterio.mask
+import geopandas as gpd
+from shapely.geometry import Polygon
+import matplotlib.pyplot as plt
+import numpy as np
+import json
 
-# Pad naar de GeoTIFF (controleer of dit pad klopt op jouw computer)
-tiff_path = "C:/Users/Zoyan/Downloads/DHMVIIDSMRAS1m_k12.tif"
-
-# Coördinaten in EPSG:31370 (X, Y)
-coordinates = [
+# 1. Polygon definiëren
+poly_coords = [
     (55291.96, 198726.33),
     (55298.41, 198732.07),
     (55305.12, 198724.36),
@@ -14,11 +16,24 @@ coordinates = [
     (55298.94, 198718.27),
     (55291.96, 198726.33)
 ]
+polygon = Polygon(poly_coords)
 
-# Open het raster en sample de hoogtes
-with rasterio.open(tiff_path) as dataset:
-    heights = [val[0] for val in dataset.sample(coordinates)]
+# 2. Omzetten naar GeoJSON-achtige dict
+geojson_geom = [json.loads(gpd.GeoSeries([polygon]).to_json())['features'][0]['geometry']]
 
-# Resultaten printen
-for i, (coord, height) in enumerate(zip(coordinates, heights)):
-    print(f"Punt {i+1} - X: {coord[0]:.2f}, Y: {coord[1]:.2f} → Hoogte: {height:.2f} m")
+# 3. TIFF inlezen en mask toepassen
+tiff_path = "C:/Users/Zoyan/Downloads/DHMVIIDSMRAS1m_k12.tif"
+with rasterio.open(tiff_path) as src:
+    out_image, out_transform = rasterio.mask.mask(src, geojson_geom, crop=True)
+    out_meta = src.meta
+
+# 4. Masked data plotten
+masked_data = np.ma.masked_equal(out_image[0], src.nodata)
+
+plt.figure(figsize=(8, 6))
+plt.imshow(masked_data, cmap='viridis')
+plt.colorbar(label='Hoogte (m)')
+plt.title("Hoogtes binnen gebouwcontour")
+plt.axis('off')
+plt.tight_layout()
+plt.show()
