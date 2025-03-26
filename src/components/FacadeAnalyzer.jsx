@@ -7,10 +7,16 @@ const gevelTypes = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rech
 
 const MultiGevelAnalyzer = () => {
   const [gevels, setGevels] = useState(
-    gevelTypes.map((naam) => ({ naam, open: false, imageURL: null, imageElement: null, polygons: [] }))
+    gevelTypes.map((naam) => ({
+      naam,
+      open: false,
+      imageURL: null,
+      imageElement: null,
+      polygons: [],
+      scale: 1,
+      displaySize: { width: 0, height: 0 }
+    }))
   );
-  const [scale, setScale] = useState(1);
-  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [selectedPolygonIndex, setSelectedPolygonIndex] = useState(null);
   const [actieveGevelIndex, setActieveGevelIndex] = useState(null);
 
@@ -63,7 +69,6 @@ const MultiGevelAnalyzer = () => {
       const result = await response.json();
       const objects = result.responses?.[0]?.localizedObjectAnnotations || [];
 
-      // ⛔️ Filter ongewenste objecten zoals 'House'
       const relevanteObjecten = objects.filter((obj) =>
         ["Window", "Door"].includes(obj.name)
       );
@@ -96,13 +101,16 @@ const MultiGevelAnalyzer = () => {
 
   const handleImageLoad = (e, index) => {
     const img = e.target;
-    updateGevelField(index, "imageElement", img);
-
-    const screenWidth = window.innerWidth;
-    const maxWidth = screenWidth * 0.5;
-    const scaleFactor = maxWidth / img.width;
-    setScale(scaleFactor);
-    setDisplaySize({ width: img.width * scaleFactor, height: img.height * scaleFactor });
+    const maxDisplayWidth = 500;
+    const scaleFactor = Math.min(maxDisplayWidth / img.width, 1);
+    const nieuweGevels = [...gevels];
+    nieuweGevels[index].imageElement = img;
+    nieuweGevels[index].scale = scaleFactor;
+    nieuweGevels[index].displaySize = {
+      width: img.width * scaleFactor,
+      height: img.height * scaleFactor,
+    };
+    setGevels(nieuweGevels);
   };
 
   const handlePolygonClick = (index) => {
@@ -157,16 +165,16 @@ const MultiGevelAnalyzer = () => {
                       style={{ display: "none" }}
                     />
                     {gevel.imageElement && (
-                      <Stage width={displaySize.width} height={displaySize.height}>
+                      <Stage width={gevel.displaySize.width} height={gevel.displaySize.height}>
                         <Layer>
-                          <KonvaImage image={gevel.imageElement} scale={{ x: scale, y: scale }} />
+                          <KonvaImage image={gevel.imageElement} scale={{ x: gevel.scale, y: gevel.scale }} />
                           {gevel.polygons.map((poly, i) => (
                             <React.Fragment key={poly.id}>
                               <Line
                                 points={poly.points
                                   .map((p) => [
-                                    p.x * gevel.imageElement.width * scale,
-                                    p.y * gevel.imageElement.height * scale,
+                                    p.x * gevel.imageElement.width * gevel.scale,
+                                    p.y * gevel.imageElement.height * gevel.scale,
                                   ])
                                   .flat()}
                                 closed
@@ -178,8 +186,8 @@ const MultiGevelAnalyzer = () => {
                                 }}
                               />
                               <Text
-                                x={poly.points[0].x * gevel.imageElement.width * scale}
-                                y={poly.points[0].y * gevel.imageElement.height * scale - 15}
+                                x={poly.points[0].x * gevel.imageElement.width * gevel.scale}
+                                y={poly.points[0].y * gevel.imageElement.height * gevel.scale - 15}
                                 text={`${poly.id} – ${poly.ruimte}`}
                                 fontSize={14}
                                 fill="black"
