@@ -12,6 +12,7 @@
     "konva": "^9.3.18",
     "leaflet": "^1.9.4",
     "mathjs": "^14.3.1",
+    "polygon-clipping": "^0.15.7",
     "proj4": "^2.15.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

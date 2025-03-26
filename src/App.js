@@ -5,10 +5,10 @@ import SearchForm from "./components/SearchForm";
 import ResultsTable from "./components/ResultsTable";
 import MapComponent from "./components/MapComponent";
 import BuildingModel from "./components/BuildingModel";
+import FloorPlanCanvas from "./components/FloorPlanCanvas";
+import FacadeAnalyzer from "./components/FacadeAnalyzer"; // ✅ Nieuw component
 import "./App.css";
 import ugentLogo from "./assets/UGent_logo.png";
-import FloorPlanCanvas from "./components/FloorPlanCanvas";
-import DragDropWalls from "./components/DragDropWalls";
 
 function App() {
   const [woningData, setWoningData] = useState(null);
@@ -53,15 +53,18 @@ function App() {
           </div>
         )}
 
-        {/* ✅ NIEUW: DRAG-AND-DROP INTERFACE VOOR BINNENMUREN */}
+        {/* ✅ DRAG-AND-DROP INTERFACE VOOR BINNENMUREN */}
         <div className="walls-container">
           <h2>🛠️ Voeg Binnenmuren Toe</h2>
           {woningData && woningData[0]?.geometry && (
-            <>
-              <FloorPlanCanvas geojson={woningData[0].geometry} />
-              <DragDropWalls floorPlanSize={{ width: 600, height: 600 }} />
-            </>
+            <FloorPlanCanvas geojson={woningData[0].geometry} />
           )}
+        </div>
+
+        {/* ✅ NIEUW: GEVELANALYSE MET GOOGLE VISION */}
+        <div className="facade-analyzer-container">
+          <h2>🔎 Herken Openingen in een Gevelafbeelding</h2>
+          <FacadeAnalyzer />
         </div>
       </div>
     </div>
