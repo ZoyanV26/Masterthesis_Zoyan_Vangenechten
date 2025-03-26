@@ -1,6 +1,9 @@
+
 import React, { useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Line } from "react-konva";
-import * as pc from "polygon-clipping"; // ✅ Voor geometrische vergelijking
+import { Stage, Layer, Image as KonvaImage, Line, Text } from "react-konva";
+import * as pc from "polygon-clipping";
+
+const ruimteOpties = ["Onbekend", "Slaapkamer", "Keuken", "Living", "Badkamer", "Bureau"];
 
 const FacadeAnalyzer = () => {
   const [imageURL, setImageURL] = useState(null);
@@ -8,6 +11,7 @@ const FacadeAnalyzer = () => {
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
   const [polygons, setPolygons] = useState([]);
+  const [selectedPolygonIndex, setSelectedPolygonIndex] = useState(null);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -16,14 +20,14 @@ const FacadeAnalyzer = () => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result.split(",")[1];
-      setImageURL(reader.result); // voor visuele weergave
+      setImageURL(reader.result);
       detectObjects(base64);
     };
     reader.readAsDataURL(file);
   };
 
   const detectObjects = async (base64) => {
-    apiKey = ´${process.env.REACT_APP_GOOGLE_API_KEY}´, // 👉 Tijdelijk rechtstreeks
+    const apiKey = "AIzaSyCykFA-cBRlVs3EKMXSvDxSG4ZdcBOvD8U";
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
 
     const body = {
@@ -47,16 +51,13 @@ const FacadeAnalyzer = () => {
       const responses = result.responses;
 
       if (!responses || responses.length === 0) {
-        console.warn("❌ Lege of ongeldige Vision API response");
-        alert("Er is iets misgelopen met de herkenning. Geen geldige respons.");
+        alert("Geen geldige respons van de Vision API.");
         return;
       }
 
       const objects = responses[0].localizedObjectAnnotations;
-
       if (!objects || objects.length === 0) {
-        console.log("ℹ️ Geen objecten gevonden.");
-        alert("Er zijn geen ramen of deuren herkend op deze afbeelding.");
+        alert("Geen objecten gevonden.");
         return;
       }
 
@@ -66,11 +67,9 @@ const FacadeAnalyzer = () => {
           x: v.x,
           y: v.y,
         })),
+        ruimte: "Onbekend", // 🏷️ default label
       }));
 
-      console.log("📦 Alle herkende polygonen:", rawPolygons);
-
-      // 🔍 Verwijder polygonen die volledig in een andere liggen
       const toPCPolygon = (points) => [points.map((p) => [p.x, p.y])];
 
       const filteredPolygons = rawPolygons.filter((poly1, i) => {
@@ -79,16 +78,14 @@ const FacadeAnalyzer = () => {
           if (i === j) return false;
           const p2 = toPCPolygon(poly2.points);
           const diff = pc.difference(p1, p2);
-          return diff.length === 0; // betekent: poly1 zit volledig in poly2
+          return diff.length === 0;
         });
       });
 
-      console.log("🧹 Gefilterde polygonen (zonder nested):", filteredPolygons);
       setPolygons(filteredPolygons);
-
     } catch (error) {
-      console.error("🚨 Fout bij communicatie met Vision API:", error);
-      alert("Er is een fout opgetreden bij het ophalen van gegevens van de Vision API.");
+      console.error("Fout bij Vision API:", error);
+      alert("Fout bij Vision API.");
     }
   };
 
@@ -97,16 +94,25 @@ const FacadeAnalyzer = () => {
     setImageElement(img);
 
     const screenWidth = window.innerWidth;
-    const maxWidth = screenWidth * 0.5; // 50% van scherm
-    const originalWidth = img.width;
-    const originalHeight = img.height;
-    const scaleFactor = maxWidth / originalWidth;
+    const maxWidth = screenWidth * 0.5;
+    const scaleFactor = maxWidth / img.width;
 
     setScale(scaleFactor);
     setDisplaySize({
-      width: originalWidth * scaleFactor,
-      height: originalHeight * scaleFactor,
+      width: img.width * scaleFactor,
+      height: img.height * scaleFactor,
     });
+  };
+
+  const handlePolygonClick = (index) => {
+    setSelectedPolygonIndex(index);
+  };
+
+  const handleLabelChange = (e) => {
+    const updatedPolygons = [...polygons];
+    updatedPolygons[selectedPolygonIndex].ruimte = e.target.value;
+    setPolygons(updatedPolygons);
+    setSelectedPolygonIndex(null);
   };
 
   return (
@@ -126,24 +132,47 @@ const FacadeAnalyzer = () => {
               <Layer>
                 <KonvaImage image={imageElement} scale={{ x: scale, y: scale }} />
                 {polygons.map((poly, index) => (
-                  <Line
-                    key={index}
-                    points={poly.points
-                      .map((p) => [
-                        p.x * imageElement.width * scale,
-                        p.y * imageElement.height * scale,
-                      ])
-                      .flat()}
-                    closed
-                    stroke="red"
-                    strokeWidth={2}
-                    name={poly.name}
-                  />
+                  <React.Fragment key={index}>
+                    <Line
+                      points={poly.points
+                        .map((p) => [
+                          p.x * imageElement.width * scale,
+                          p.y * imageElement.height * scale,
+                        ])
+                        .flat()}
+                      closed
+                      stroke={index === selectedPolygonIndex ? "blue" : "red"}
+                      strokeWidth={2}
+                      onClick={() => handlePolygonClick(index)}
+                    />
+                    {/* Toon label */}
+                    <Text
+                      x={poly.points[0].x * imageElement.width * scale}
+                      y={poly.points[0].y * imageElement.height * scale - 15}
+                      text={poly.ruimte}
+                      fontSize={14}
+                      fill="black"
+                    />
+                  </React.Fragment>
                 ))}
               </Layer>
             </Stage>
           )}
         </>
+      )}
+
+      {/* 🏷️ Dropdown bij selectie */}
+      {selectedPolygonIndex !== null && (
+        <div style={{ marginTop: "10px" }}>
+          <label>Welke ruimte zit achter deze opening? </label>
+          <select value={polygons[selectedPolygonIndex].ruimte} onChange={handleLabelChange}>
+            {ruimteOpties.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
     </div>
   );
