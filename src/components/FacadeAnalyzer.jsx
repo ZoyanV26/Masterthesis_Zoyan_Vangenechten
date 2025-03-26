@@ -3,29 +3,46 @@ import { Stage, Layer, Image as KonvaImage, Line, Text } from "react-konva";
 import * as pc from "polygon-clipping";
 
 const ruimteOpties = ["Onbekend", "Slaapkamer", "Keuken", "Living", "Badkamer", "Bureau"];
+const gevelTypes = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"];
 
-const FacadeAnalyzer = () => {
-  const [imageURL, setImageURL] = useState(null);
-  const [imageElement, setImageElement] = useState(null);
-  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+const MultiGevelAnalyzer = () => {
+  const [gevels, setGevels] = useState(
+    gevelTypes.map((naam) => ({ naam, open: false, imageURL: null, imageElement: null, polygons: [] }))
+  );
   const [scale, setScale] = useState(1);
-  const [polygons, setPolygons] = useState([]);
+  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [selectedPolygonIndex, setSelectedPolygonIndex] = useState(null);
+  const [actieveGevelIndex, setActieveGevelIndex] = useState(null);
 
-  const handleImageUpload = (e) => {
+  const handleToggle = (index) => {
+    const nieuweGevels = gevels.map((gevel, i) =>
+      i === index ? { ...gevel, open: !gevel.open } : gevel
+    );
+    setGevels(nieuweGevels);
+    setSelectedPolygonIndex(null);
+    setActieveGevelIndex(index);
+  };
+
+  const handleImageUpload = (e, index) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result.split(",")[1];
-      setImageURL(reader.result);
-      detectObjects(base64);
+      updateGevelField(index, "imageURL", reader.result);
+      detectObjects(base64, index);
     };
     reader.readAsDataURL(file);
   };
 
-  const detectObjects = async (base64) => {
+  const updateGevelField = (index, key, value) => {
+    const nieuweGevels = [...gevels];
+    nieuweGevels[index][key] = value;
+    setGevels(nieuweGevels);
+  };
+
+  const detectObjects = async (base64, index) => {
     const apiKey = "AIzaSyCykFA-cBRlVs3EKMXSvDxSG4ZdcBOvD8U";
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
 
@@ -43,30 +60,18 @@ const FacadeAnalyzer = () => {
         method: "POST",
         body: JSON.stringify(body),
       });
-
       const result = await response.json();
-      console.log("🌐 Vision API response:", result);
+      const objects = result.responses?.[0]?.localizedObjectAnnotations || [];
 
-      const responses = result.responses;
+      // ⛔️ Filter ongewenste objecten zoals 'House'
+      const relevanteObjecten = objects.filter((obj) =>
+        ["Window", "Door"].includes(obj.name)
+      );
 
-      if (!responses || responses.length === 0) {
-        alert("Geen geldige respons van de Vision API.");
-        return;
-      }
-
-      const objects = responses[0].localizedObjectAnnotations;
-      if (!objects || objects.length === 0) {
-        alert("Geen objecten gevonden.");
-        return;
-      }
-
-      const rawPolygons = objects.map((obj, index) => ({
-        id: index + 1,
+      const rawPolygons = relevanteObjecten.map((obj, i) => ({
+        id: i + 1,
         name: obj.name,
-        points: obj.boundingPoly.normalizedVertices.map((v) => ({
-          x: v.x,
-          y: v.y,
-        })),
+        points: obj.boundingPoly.normalizedVertices.map((v) => ({ x: v.x, y: v.y })),
         ruimte: "Onbekend",
       }));
 
@@ -82,26 +87,22 @@ const FacadeAnalyzer = () => {
         });
       });
 
-      setPolygons(filteredPolygons);
-    } catch (error) {
-      console.error("Fout bij Vision API:", error);
-      alert("Fout bij Vision API.");
+      updateGevelField(index, "polygons", filteredPolygons);
+    } catch (err) {
+      alert("Fout bij het ophalen van gegevens van de Vision API");
+      console.error(err);
     }
   };
 
-  const handleImageLoad = (e) => {
+  const handleImageLoad = (e, index) => {
     const img = e.target;
-    setImageElement(img);
+    updateGevelField(index, "imageElement", img);
 
     const screenWidth = window.innerWidth;
     const maxWidth = screenWidth * 0.5;
     const scaleFactor = maxWidth / img.width;
-
     setScale(scaleFactor);
-    setDisplaySize({
-      width: img.width * scaleFactor,
-      height: img.height * scaleFactor,
-    });
+    setDisplaySize({ width: img.width * scaleFactor, height: img.height * scaleFactor });
   };
 
   const handlePolygonClick = (index) => {
@@ -109,94 +110,112 @@ const FacadeAnalyzer = () => {
   };
 
   const handleLabelChange = (e) => {
-    const updatedPolygons = [...polygons];
-    updatedPolygons[selectedPolygonIndex].ruimte = e.target.value;
-    setPolygons(updatedPolygons);
+    const nieuweGevels = [...gevels];
+    nieuweGevels[actieveGevelIndex].polygons[selectedPolygonIndex].ruimte = e.target.value;
+    setGevels(nieuweGevels);
     setSelectedPolygonIndex(null);
   };
 
   const exportJSON = () => {
-    const exportData = polygons.map((poly) => ({
-      id: poly.id,
-      type: poly.name,
-      ruimte: poly.ruimte,
-      points: poly.points,
+    const exportData = gevels.map((gevel) => ({
+      naam: gevel.naam,
+      polygons: gevel.polygons.map((poly) => ({
+        id: poly.id,
+        type: poly.name,
+        ruimte: poly.ruimte,
+        points: poly.points,
+      })),
     }));
-
-    console.log("📤 JSON Export:", exportData);
-    alert("De data werd geëxporteerd. Bekijk de console voor de JSON.");
+    console.log("📤 Geveldata JSON:", exportData);
+    alert("Data geëxporteerd. Zie console.");
   };
 
   return (
     <div>
-      <h2>🏠 Gevelanalyse</h2>
-      <input type="file" accept="image/*" onChange={handleImageUpload} />
+      <h2>🏠 Multi-gevelanalyse</h2>
 
-      {imageURL && (
-        <div style={{ display: "flex", gap: "20px", alignItems: "flex-start", marginTop: "20px" }}>
-          {/* 🔹 Linkerzijde: afbeelding/canvas */}
-          <div>
-            <img
-              src={imageURL}
-              alt="Geüploade gevel"
-              onLoad={handleImageLoad}
-              style={{ display: "none" }}
-            />
-            {imageElement && (
-              <Stage width={displaySize.width} height={displaySize.height}>
-                <Layer>
-                  <KonvaImage image={imageElement} scale={{ x: scale, y: scale }} />
-                  {polygons.map((poly, index) => (
-                    <React.Fragment key={poly.id}>
-                      <Line
-                        points={poly.points
-                          .map((p) => [
-                            p.x * imageElement.width * scale,
-                            p.y * imageElement.height * scale,
-                          ])
-                          .flat()}
-                        closed
-                        stroke={index === selectedPolygonIndex ? "blue" : "red"}
-                        strokeWidth={2}
-                        onClick={() => handlePolygonClick(index)}
-                      />
-                      <Text
-                        x={poly.points[0].x * imageElement.width * scale}
-                        y={poly.points[0].y * imageElement.height * scale - 15}
-                        text={`${poly.id} – ${poly.ruimte}`}
-                        fontSize={14}
-                        fill="black"
-                      />
-                    </React.Fragment>
-                  ))}
-                </Layer>
-              </Stage>
-            )}
-          </div>
+      {gevels.map((gevel, index) => (
+        <div key={index} style={{ marginBottom: "20px", border: "1px solid #ccc", padding: "10px" }}>
+          <h3 onClick={() => handleToggle(index)} style={{ cursor: "pointer" }}>
+            {gevel.open ? "▼" : "▶"} {gevel.naam}
+          </h3>
 
-          {/* 🔸 Rechterzijde: interactie */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {selectedPolygonIndex !== null && (
+          {gevel.open && (
+            <div style={{ display: "flex", gap: "20px", alignItems: "flex-start", marginTop: "10px" }}>
               <div>
-                <label>Welke ruimte zit achter deze opening?</label>
-                <select
-                  value={polygons[selectedPolygonIndex].ruimte}
-                  onChange={handleLabelChange}
-                >
-                  {ruimteOpties.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, index)}
+                />
+                {gevel.imageURL && (
+                  <>
+                    <img
+                      src={gevel.imageURL}
+                      alt="Geüploade gevel"
+                      onLoad={(e) => handleImageLoad(e, index)}
+                      style={{ display: "none" }}
+                    />
+                    {gevel.imageElement && (
+                      <Stage width={displaySize.width} height={displaySize.height}>
+                        <Layer>
+                          <KonvaImage image={gevel.imageElement} scale={{ x: scale, y: scale }} />
+                          {gevel.polygons.map((poly, i) => (
+                            <React.Fragment key={poly.id}>
+                              <Line
+                                points={poly.points
+                                  .map((p) => [
+                                    p.x * gevel.imageElement.width * scale,
+                                    p.y * gevel.imageElement.height * scale,
+                                  ])
+                                  .flat()}
+                                closed
+                                stroke={i === selectedPolygonIndex ? "blue" : "red"}
+                                strokeWidth={2}
+                                onClick={() => {
+                                  setActieveGevelIndex(index);
+                                  handlePolygonClick(i);
+                                }}
+                              />
+                              <Text
+                                x={poly.points[0].x * gevel.imageElement.width * scale}
+                                y={poly.points[0].y * gevel.imageElement.height * scale - 15}
+                                text={`${poly.id} – ${poly.ruimte}`}
+                                fontSize={14}
+                                fill="black"
+                              />
+                            </React.Fragment>
+                          ))}
+                        </Layer>
+                      </Stage>
+                    )}
+                  </>
+                )}
               </div>
-            )}
-            <button onClick={exportJSON}>📤 Exporteer gegevens als JSON</button>
-          </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {selectedPolygonIndex !== null && actieveGevelIndex === index && (
+                  <div>
+                    <label>Welke ruimte zit achter deze opening?</label>
+                    <select
+                      value={gevel.polygons[selectedPolygonIndex].ruimte}
+                      onChange={handleLabelChange}
+                    >
+                      {ruimteOpties.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      ))}
+
+      <button onClick={exportJSON}>📤 Exporteer alle gevelgegevens als JSON</button>
     </div>
   );
 };
 
-export default FacadeAnalyzer;
+export default MultiGevelAnalyzer;
