@@ -6,7 +6,8 @@ import ResultsTable from "./components/ResultsTable";
 import MapComponent from "./components/MapComponent";
 import BuildingModel from "./components/BuildingModel";
 import FloorPlanCanvas from "./components/FloorPlanCanvas";
-import FacadeAnalyzer from "./components/FacadeAnalyzer"; // ✅ Nieuw component
+import FacadeAnalyzer from "./components/FacadeAnalyzer";
+import Tryout from "./components/Tryout"; // ✅ Nieuw toegevoegd
 import "./App.css";
 import ugentLogo from "./assets/UGent_logo.png";
 
@@ -59,6 +60,8 @@ function App() {
           {woningData && woningData[0]?.geometry && (
             <FloorPlanCanvas geojson={woningData[0].geometry} />
           )}
+          {/* Nieuw tekencomponent */}
+          <Tryout />
         </div>
 
         {/* ✅ NIEUW: GEVELANALYSE MET GOOGLE VISION */}
