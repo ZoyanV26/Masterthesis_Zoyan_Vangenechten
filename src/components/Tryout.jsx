@@ -1,20 +1,12 @@
-// VISUELE EDITOR MET VERBETERD GRID EN SCHAAL
+// VISUELE EDITOR MET INTERACTIEVE PAN & ZOOM (VOLLEDIG HERSTELD)
 import React, { useState, useEffect } from "react";
 import { Stage, Layer, Line, Rect, Text, Group } from "react-konva";
 import proj4 from "proj4";
 
-const GRID_SIZE = 20;
-const SCALE = 4; // pixels per meter (kleiner om hele gebouw zichtbaar te maken)
+const GRID_SIZE = 10;
+const SCALE = 50;
 const WALL_THICKNESS = 10;
 const WALL_OVERSHOOT = 5;
-const ROOM_COLORS = [
-  "rgba(0, 119, 255, 0.2)",
-  "rgba(0, 200, 150, 0.2)",
-  "rgba(255, 180, 0, 0.2)",
-  "rgba(180, 100, 255, 0.2)",
-  "rgba(255, 100, 150, 0.2)",
-  "rgba(100, 255, 200, 0.2)"
-];
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -37,7 +29,9 @@ export default function Tryout() {
   const [mousePos, setMousePos] = useState(null);
   const [hoveredWallIndex, setHoveredWallIndex] = useState(null);
   const [rooms, setRooms] = useState([]);
-  const [mode, setMode] = useState("draw");
+    const [mode, setMode] = useState("draw");
+  const [stageScale, setStageScale] = useState(1);
+  const [stagePosition, setStagePosition] = useState({ x: offsetX, y: offsetY });
 
   useEffect(() => {
     if (!exampleGeojson?.coordinates) return;
@@ -57,10 +51,12 @@ export default function Tryout() {
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
     const centered = converted.map(([x, y]) => [x - centerX, y - centerY]);
+    const correctieFactor = 0.1;
+    const corrected = centered.map(([x, y]) => [x * correctieFactor, y * correctieFactor]);
     const newWalls = [];
-    for (let i = 0; i < centered.length - 1; i++) {
-      const [x1m, y1m] = centered[i];
-      const [x2m, y2m] = centered[i + 1];
+    for (let i = 0; i < corrected.length - 1; i++) {
+      const [x1m, y1m] = corrected[i];
+      const [x2m, y2m] = corrected[i + 1];
       newWalls.push({
         x1: x1m * SCALE,
         y1: y1m * SCALE,
@@ -77,8 +73,8 @@ export default function Tryout() {
   const handleClick = (e) => {
     const stage = e.target.getStage();
     const pointer = stage.getPointerPosition();
-    const x = snap(pointer.x - offsetX);
-    const y = snap(pointer.y - offsetY);
+    const x = snap((pointer.x - stagePosition.x) / stageScale);
+    const y = snap((pointer.y - stagePosition.y) / stageScale);
     if (mode === "select") {
       floodFill(x, y);
       return;
@@ -98,7 +94,13 @@ export default function Tryout() {
       if (!drawingWall) {
         setDrawingWall({ x1: x, y1: y, x2: x, y2: y });
       } else {
-        const newWall = { x1: drawingWall.x1, y1: drawingWall.y1, x2: x, y2: y, length: distance(drawingWall.x1, drawingWall.y1, x, y).toFixed(2) };
+        const newWall = {
+          x1: drawingWall.x1,
+          y1: drawingWall.y1,
+          x2: x,
+          y2: y,
+          length: (distance(drawingWall.x1, drawingWall.y1, x, y) / SCALE).toFixed(2)
+        };
         setWalls([...walls, newWall]);
         setDrawingWall(null);
       }
@@ -110,7 +112,11 @@ export default function Tryout() {
     const pointer = stage.getPointerPosition();
     setMousePos(pointer);
     if (drawingWall) {
-      setDrawingWall({ ...drawingWall, x2: snap(pointer.x - offsetX), y2: snap(pointer.y - offsetY) });
+      setDrawingWall({
+        ...drawingWall,
+        x2: snap((pointer.x - stagePosition.x) / stageScale),
+        y2: snap((pointer.y - stagePosition.y) / stageScale)
+      });
     }
   };
 
@@ -171,27 +177,55 @@ export default function Tryout() {
       <Stage
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
-        x={offsetX}
-        y={offsetY}
+        scaleX={stageScale}
+        scaleY={stageScale}
+        x={stagePosition.x}
+        y={stagePosition.y}
+        draggable
         onClick={handleClick}
         onMouseMove={handleMouseMove}
+        onWheel={(e) => {
+          e.evt.preventDefault();
+          const scaleBy = 1.05;
+          const stage = e.target.getStage();
+          const oldScale = stageScale;
+          const pointer = stage.getPointerPosition();
+
+          const mousePointTo = {
+            x: (pointer.x - stagePosition.x) / oldScale,
+            y: (pointer.y - stagePosition.y) / oldScale
+          };
+
+          const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+          setStageScale(newScale);
+
+          setStagePosition({
+            x: pointer.x - mousePointTo.x * newScale,
+            y: pointer.y - mousePointTo.y * newScale
+          });
+        }}
         style={{ border: "1px solid #ccc" }}
       >
         <Layer>
-          {[...Array(CANVAS_WIDTH / GRID_SIZE)].map((_, i) => (
-            <Line
-              key={`v${i}`}
-              points={[i * GRID_SIZE - offsetX, -offsetY, i * GRID_SIZE - offsetX, CANVAS_HEIGHT - offsetY]}
-              stroke="#eee"
-            />
-          ))}
-          {[...Array(CANVAS_HEIGHT / GRID_SIZE)].map((_, i) => (
-            <Line
-              key={`h${i}`}
-              points={[-offsetX, i * GRID_SIZE - offsetY, CANVAS_WIDTH - offsetX, i * GRID_SIZE - offsetY]}
-              stroke="#eee"
-            />
-          ))}
+          {[...Array(200)].map((_, i) => {
+            const pos = (i - 100) * GRID_SIZE;
+            return (
+              <Group key={`grid-group-${i}`}>
+                <Line
+                  key={`grid-v-${i}`}
+                  points={[pos, -1000, pos, 1000]}
+                  stroke="#eee"
+                  strokeWidth={1}
+                />
+                <Line
+                  key={`grid-h-${i}`}
+                  points={[-1000, pos, 1000, pos]}
+                  stroke="#eee"
+                  strokeWidth={1}
+                />
+              </Group>
+            );
+          })}
 
           {rooms.map((room, i) => (
             <React.Fragment key={i}>
@@ -202,7 +236,7 @@ export default function Tryout() {
                   y={cell.y - GRID_SIZE / 2 - 1}
                   width={GRID_SIZE + 2}
                   height={GRID_SIZE + 2}
-                  fill={ROOM_COLORS[i % ROOM_COLORS.length]}
+                  fill="#aad7ff"
                 />
               ))}
               <Text
@@ -214,9 +248,7 @@ export default function Tryout() {
               />
             </React.Fragment>
           ))}
-        </Layer>
 
-        <Layer>
           {walls.map((wall, index) => {
             const dx = wall.x2 - wall.x1;
             const dy = wall.y2 - wall.y1;
@@ -230,7 +262,7 @@ export default function Tryout() {
             const midX = (wall.x1 + wall.x2) / 2;
             const midY = (wall.y1 + wall.y2) / 2;
             return (
-              <Group key={index}>
+              <Group key={`wall-${index}`}>
                 <Line
                   points={[x1, y1, x2, y2]}
                   stroke={hoveredWallIndex === index ? "#0077ff" : "black"}
@@ -254,8 +286,8 @@ export default function Tryout() {
               points={[
                 drawingWall.x1,
                 drawingWall.y1,
-                snap(mousePos.x - offsetX),
-                snap(mousePos.y - offsetY)
+                drawingWall.x2,
+                drawingWall.y2
               ]}
               stroke="#aaa"
               strokeWidth={2}
