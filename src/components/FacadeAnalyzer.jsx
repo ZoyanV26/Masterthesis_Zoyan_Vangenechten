@@ -1,21 +1,14 @@
 import React, { useState } from "react";
-import { Stage, Layer, Image as KonvaImage, Line, Text, Circle } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Line, Text, Circle, Rect } from "react-konva";
 import * as pc from "polygon-clipping";
 
 const ruimteOpties = ["Onbekend", "Slaapkamer", "Keuken", "Living", "Badkamer", "Bureau"];
 const gevelTypes = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"];
 
-const gevelSegmenten = [
-  { naam: "Voorgevel", lengte: 8.4 },
-  { naam: "Achtergevel", lengte: 8.4 },
-  { naam: "Zijgevel Links", lengte: 6.2 },
-  { naam: "Zijgevel Rechts", lengte: 6.2 },
-];
-
-const MultiGevelAnalyzer = () => {
+const MultiGevelAnalyzer = ({ onExport }) => {
   const [gevels, setGevels] = useState(
     gevelTypes.map((naam) => ({
-      naam,
+      gevelType: naam,
       open: false,
       imageURL: null,
       imageElement: null,
@@ -23,26 +16,30 @@ const MultiGevelAnalyzer = () => {
       scale: 1,
       displaySize: { width: 0, height: 0 },
       scaleLine: [],
-      geselecteerdSegment: "",
-      schaalLijnActief: false
+      schaalLijnActief: false,
+      tekenActief: false,
+      nieuwePolygon: null,
     }))
   );
+
   const [selectedPolygonIndex, setSelectedPolygonIndex] = useState(null);
   const [actieveGevelIndex, setActieveGevelIndex] = useState(null);
 
+  const updateGevelField = (index, key, value) => {
+    const nieuwe = [...gevels];
+    nieuwe[index][key] = value;
+    setGevels(nieuwe);
+  };
+
   const handleToggle = (index) => {
-    const nieuweGevels = gevels.map((gevel, i) =>
-      i === index ? { ...gevel, open: !gevel.open } : gevel
-    );
-    setGevels(nieuweGevels);
-    setSelectedPolygonIndex(null);
     setActieveGevelIndex(index);
+    setSelectedPolygonIndex(null);
+    updateGevelField(index, "open", !gevels[index].open);
   };
 
   const handleImageUpload = (e, index) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result.split(",")[1];
@@ -52,16 +49,9 @@ const MultiGevelAnalyzer = () => {
     reader.readAsDataURL(file);
   };
 
-  const updateGevelField = (index, key, value) => {
-    const nieuweGevels = [...gevels];
-    nieuweGevels[index][key] = value;
-    setGevels(nieuweGevels);
-  };
-
   const detectObjects = async (base64, index) => {
     const apiKey = "AIzaSyCykFA-cBRlVs3EKMXSvDxSG4ZdcBOvD8U";
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
-
     const body = {
       requests: [
         {
@@ -74,254 +64,175 @@ const MultiGevelAnalyzer = () => {
     try {
       const response = await fetch(url, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+
+      if (!response.ok) {
+        alert("Fout bij ophalen van Vision API (status: " + response.status + ")");
+        return;
+      }
+
       const result = await response.json();
       const objects = result.responses?.[0]?.localizedObjectAnnotations || [];
+      if (objects.length === 0) {
+        alert("Geen ramen of deuren gedetecteerd.");
+        return;
+      }
 
-      const relevanteObjecten = objects.filter((obj) =>
-        ["Window", "Door"].includes(obj.name)
-      );
-
-      const rawPolygons = relevanteObjecten.map((obj, i) => ({
+      const relevante = objects.filter((obj) => ["Window", "Door"].includes(obj.name));
+      const rawPolygons = relevante.map((obj, i) => ({
         id: i + 1,
         name: obj.name,
         points: obj.boundingPoly.normalizedVertices.map((v) => ({ x: v.x, y: v.y })),
         ruimte: "Onbekend",
       }));
 
-      const toPCPolygon = (points) => [points.map((p) => [p.x, p.y])];
+      const toPC = (pts) => [pts.map((p) => [p.x, p.y])];
+      const filtered = rawPolygons.filter((p1, i) =>
+        !rawPolygons.some((p2, j) => i !== j && pc.difference(toPC(p1.points), toPC(p2.points)).length === 0)
+      );
 
-      const filteredPolygons = rawPolygons.filter((poly1, i) => {
-        const p1 = toPCPolygon(poly1.points);
-        return !rawPolygons.some((poly2, j) => {
-          if (i === j) return false;
-          const p2 = toPCPolygon(poly2.points);
-          const diff = pc.difference(p1, p2);
-          return diff.length === 0;
-        });
-      });
-
-      updateGevelField(index, "polygons", filteredPolygons);
+      updateGevelField(index, "polygons", filtered);
     } catch (err) {
-      alert("Fout bij het ophalen van gegevens van de Vision API");
-      console.error(err);
+      alert("Fout bij ophalen van Vision API");
     }
   };
 
   const handleImageLoad = (e, index) => {
     const img = e.target;
-    const maxDisplayWidth = 500;
-    const scaleFactor = Math.min(maxDisplayWidth / img.width, 1);
-    const nieuweGevels = [...gevels];
-    nieuweGevels[index].imageElement = img;
-    nieuweGevels[index].scale = scaleFactor;
-    nieuweGevels[index].displaySize = {
-      width: img.width * scaleFactor,
-      height: img.height * scaleFactor,
-    };
-    setGevels(nieuweGevels);
+    const schaal = Math.min(500 / img.width, 1);
+    updateGevelField(index, "imageElement", img);
+    updateGevelField(index, "scale", schaal);
+    updateGevelField(index, "displaySize", { width: img.width * schaal, height: img.height * schaal });
   };
 
   const handleCanvasClick = (e, index) => {
-    const gevel = gevels[index];
-    if (!gevel.schaalLijnActief) return;
+    const g = gevels[index];
+    const pointer = e.target.getStage().getPointerPosition();
+    const nieuwe = [...gevels];
 
-    const stage = e.target.getStage();
-    const pointer = stage.getPointerPosition();
-    const nieuweGevels = [...gevels];
-    const punten = nieuweGevels[index].scaleLine;
-
-    if (punten.length >= 2) {
-      nieuweGevels[index].scaleLine = [pointer];
-    } else {
-      nieuweGevels[index].scaleLine = [...punten, pointer];
+    if (g.schaalLijnActief) {
+      const p = nieuwe[index].scaleLine;
+      nieuwe[index].scaleLine = p.length >= 2 ? [pointer] : [...p, pointer];
+    } else if (g.tekenActief) {
+      if (!g.nieuwePolygon) {
+        nieuwe[index].nieuwePolygon = { start: pointer };
+      } else {
+        const { start } = g.nieuwePolygon;
+        const poly = {
+          id: g.polygons.length + 1,
+          name: "Manual",
+          ruimte: "Onbekend",
+          points: [
+            { x: start.x / g.displaySize.width, y: start.y / g.displaySize.height },
+            { x: pointer.x / g.displaySize.width, y: start.y / g.displaySize.height },
+            { x: pointer.x / g.displaySize.width, y: pointer.y / g.displaySize.height },
+            { x: start.x / g.displaySize.width, y: pointer.y / g.displaySize.height },
+          ],
+        };
+        nieuwe[index].polygons.push(poly);
+        nieuwe[index].nieuwePolygon = null;
+      }
     }
-
-    setGevels(nieuweGevels);
+    setGevels(nieuwe);
   };
 
   const toggleSchaalLijn = (index) => {
-    const nieuweGevels = [...gevels];
-    nieuweGevels[index].schaalLijnActief = !nieuweGevels[index].schaalLijnActief;
-    setGevels(nieuweGevels);
+    const nieuwe = [...gevels];
+    nieuwe[index].schaalLijnActief = !gevels[index].schaalLijnActief;
+    nieuwe[index].tekenActief = false;
+    setGevels(nieuwe);
   };
 
-  const berekenPixelAfstand = (punten) => {
-    if (punten.length !== 2) return null;
-    const dx = punten[1].x - punten[0].x;
-    const dy = punten[1].y - punten[0].y;
-    return Math.sqrt(dx * dx + dy * dy);
+  const toggleTekenModus = (index) => {
+    const nieuwe = [...gevels];
+    nieuwe[index].tekenActief = !gevels[index].tekenActief;
+    nieuwe[index].schaalLijnActief = false;
+    setGevels(nieuwe);
   };
 
-  const berekenSchaal = (index) => {
-    const gevel = gevels[index];
-    const pixelAfstand = berekenPixelAfstand(gevel.scaleLine);
-    const segment = gevelSegmenten.find((s) => s.naam === gevel.geselecteerdSegment);
-    if (!pixelAfstand || !segment) return null;
-    return segment.lengte / pixelAfstand;
-  };
-
-  const handleSegmentSelect = (e, index) => {
-    const nieuweGevels = [...gevels];
-    nieuweGevels[index].geselecteerdSegment = e.target.value;
-    setGevels(nieuweGevels);
-  };
-
-  const handlePolygonClick = (index) => {
-    setSelectedPolygonIndex(index);
-  };
+  const handlePolygonClick = (i) => setSelectedPolygonIndex(i);
 
   const handleLabelChange = (e) => {
-    const nieuweGevels = [...gevels];
-    nieuweGevels[actieveGevelIndex].polygons[selectedPolygonIndex].ruimte = e.target.value;
-    setGevels(nieuweGevels);
+    const nieuwe = [...gevels];
+    nieuwe[actieveGevelIndex].polygons[selectedPolygonIndex].ruimte = e.target.value;
+    setGevels(nieuwe);
+    setSelectedPolygonIndex(null);
+  };
+
+  const handleVerwijderPolygon = () => {
+    if (selectedPolygonIndex === null || actieveGevelIndex === null) return;
+    const nieuwe = [...gevels];
+    nieuwe[actieveGevelIndex].polygons.splice(selectedPolygonIndex, 1);
+    setGevels(nieuwe);
     setSelectedPolygonIndex(null);
   };
 
   const exportJSON = () => {
-    const exportData = gevels.map((gevel) => ({
-      naam: gevel.naam,
-      polygons: gevel.polygons.map((poly) => ({
-        id: poly.id,
-        type: poly.name,
-        ruimte: poly.ruimte,
-        points: poly.points,
-      })),
-      scaleLine: gevel.scaleLine,
-      gevelSegment: gevel.geselecteerdSegment,
-    }));
-    console.log("📤 Geveldata JSON:", exportData);
-    alert("Data geëxporteerd. Zie console.");
+    if (typeof onExport === "function") onExport(gevels);
   };
 
   return (
     <div>
       <h2>🏠 Multi-gevelanalyse</h2>
-
-      {gevels.map((gevel, index) => {
-        const pixelAfstand = berekenPixelAfstand(gevel.scaleLine);
-        const schaal = berekenSchaal(index);
-
-        return (
-          <div key={index} style={{ marginBottom: "20px", border: "1px solid #ccc", padding: "10px" }}>
-            <h3 onClick={() => handleToggle(index)} style={{ cursor: "pointer" }}>
-              {gevel.open ? "▼" : "▶"} {gevel.naam}
-            </h3>
-
-            {gevel.open && (
-              <div style={{ display: "flex", gap: "20px", alignItems: "flex-start", marginTop: "10px" }}>
-                <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, index)}
+      {gevels.map((g, i) => (
+        <div key={i} style={{ marginBottom: 20, border: "1px solid #ccc", padding: 10 }}>
+          <h3 onClick={() => handleToggle(i)} style={{ cursor: "pointer" }}>{g.open ? "▼" : "▶"} {g.gevelType}</h3>
+          {g.open && (
+            <div style={{ display: "flex", gap: 20 }}>
+              <div>
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, i)} />
+                {g.imageURL && (
+                  <img
+                    src={g.imageURL}
+                    alt="preview"
+                    onLoad={(e) => handleImageLoad(e, i)}
+                    style={{ display: "none" }}
                   />
-                  <button onClick={() => toggleSchaalLijn(index)}>
-                    {gevel.schaalLijnActief ? "❌ Stop Schaallijn" : "📏 Start Schaallijn"}
-                  </button>
+                )}
+                <button onClick={() => toggleSchaalLijn(i)}>{g.schaalLijnActief ? "❌ Stop Schaallijn" : "📏 Start Schaallijn"}</button>
+                <button onClick={() => toggleTekenModus(i)}>{g.tekenActief ? "❌ Stop Tekenmodus" : "🟥 Teken venster"}</button>
 
-                  <div style={{ marginTop: 10 }}>
-                    <label>Kies bijhorende gevellijn: </label>
-                    <select value={gevel.geselecteerdSegment} onChange={(e) => handleSegmentSelect(e, index)}>
-                      <option value="">-- Selecteer gevel --</option>
-                      {gevelSegmenten.map((s) => (
-                        <option key={s.naam} value={s.naam}>
-                          {s.naam} ({s.lengte} m)
-                        </option>
+                {g.imageURL && g.imageElement && (
+                  <Stage width={g.displaySize.width} height={g.displaySize.height} onClick={(e) => handleCanvasClick(e, i)}>
+                    <Layer>
+                      <KonvaImage image={g.imageElement} scale={{ x: g.scale, y: g.scale }} />
+                      {g.polygons.map((p, j) => (
+                        <React.Fragment key={p.id}>
+                          <Line
+                            points={p.points.map(pt => [pt.x * g.imageElement.width * g.scale, pt.y * g.imageElement.height * g.scale]).flat()}
+                            closed stroke={j === selectedPolygonIndex ? "blue" : "red"} strokeWidth={2}
+                            onClick={() => { setActieveGevelIndex(i); handlePolygonClick(j); }}
+                          />
+                          <Text
+                            x={p.points[0].x * g.imageElement.width * g.scale}
+                            y={p.points[0].y * g.imageElement.height * g.scale - 15}
+                            text={`${p.id} – ${p.ruimte}`}
+                            fontSize={14} fill="black"
+                          />
+                        </React.Fragment>
                       ))}
+                      {g.scaleLine.length === 2 && <Line points={g.scaleLine.flatMap(p => [p.x, p.y])} stroke="green" strokeWidth={3} dash={[10, 5]} />}
+                      {g.scaleLine.map((p, k) => <Circle key={k} x={p.x} y={p.y} radius={4} fill="green" />)}
+                    </Layer>
+                  </Stage>
+                )}
+                {selectedPolygonIndex !== null && actieveGevelIndex === i && (
+                  <div>
+                    <label>Ruimte achter opening:</label>
+                    <select value={g.polygons[selectedPolygonIndex].ruimte} onChange={handleLabelChange}>
+                      {ruimteOpties.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
+                    <button style={{ marginLeft: 10 }} onClick={handleVerwijderPolygon}>🗑️ Verwijder</button>
                   </div>
-
-                  {gevel.imageURL && (
-                    <>
-                      <img
-                        src={gevel.imageURL}
-                        alt="Geüploade gevel"
-                        onLoad={(e) => handleImageLoad(e, index)}
-                        style={{ display: "none" }}
-                      />
-                      {gevel.imageElement && (
-                        <Stage
-                          width={gevel.displaySize.width}
-                          height={gevel.displaySize.height}
-                          onClick={(e) => handleCanvasClick(e, index)}
-                        >
-                          <Layer>
-                            <KonvaImage image={gevel.imageElement} scale={{ x: gevel.scale, y: gevel.scale }} />
-                            {gevel.polygons.map((poly, i) => (
-                              <React.Fragment key={poly.id}>
-                                <Line
-                                  points={poly.points
-                                    .map((p) => [
-                                      p.x * gevel.imageElement.width * gevel.scale,
-                                      p.y * gevel.imageElement.height * gevel.scale,
-                                    ])
-                                    .flat()}
-                                  closed
-                                  stroke={i === selectedPolygonIndex ? "blue" : "red"}
-                                  strokeWidth={2}
-                                  onClick={() => {
-                                    setActieveGevelIndex(index);
-                                    handlePolygonClick(i);
-                                  }}
-                                />
-                                <Text
-                                  x={poly.points[0].x * gevel.imageElement.width * gevel.scale}
-                                  y={poly.points[0].y * gevel.imageElement.height * gevel.scale - 15}
-                                  text={`${poly.id} – ${poly.ruimte}`}
-                                  fontSize={14}
-                                  fill="black"
-                                />
-                              </React.Fragment>
-                            ))}
-                            {gevel.scaleLine.length === 2 && (
-                              <Line
-                                points={gevel.scaleLine.flatMap((p) => [p.x, p.y])}
-                                stroke="green"
-                                strokeWidth={3}
-                                dash={[10, 5]}
-                              />
-                            )}
-                            {gevel.scaleLine.map((p, i) => (
-                              <Circle key={i} x={p.x} y={p.y} radius={4} fill="green" />
-                            ))}
-                          </Layer>
-                        </Stage>
-                      )}
-                    </>
-                  )}
-
-                  {gevel.scaleLine.length === 2 && (
-                    <div style={{ marginTop: 10 }}>
-                      <p>📏 Pixelafstand: {pixelAfstand?.toFixed(2)} px</p>
-                      {schaal && <p>🧮 Schaal: {schaal.toFixed(4)} m/pixel</p>}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {selectedPolygonIndex !== null && actieveGevelIndex === index && (
-                    <div>
-                      <label>Welke ruimte zit achter deze opening?</label>
-                      <select
-                        value={gevel.polygons[selectedPolygonIndex].ruimte}
-                        onChange={handleLabelChange}
-                      >
-                        {ruimteOpties.map((opt) => (
-                          <option key={opt} value={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
-
-      <button onClick={exportJSON}>📤 Exporteer alle gevelgegevens als JSON</button>
+            </div>
+          )}
+        </div>
+      ))}
+      <button onClick={exportJSON}>📤 Exporteer JSON naar Tryout</button>
     </div>
   );
 };

@@ -6,17 +6,17 @@ import ResultsTable from "./components/ResultsTable";
 import MapComponent from "./components/MapComponent";
 import BuildingModel from "./components/BuildingModel";
 import FloorPlanCanvas from "./components/FloorPlanCanvas";
-import FacadeAnalyzer from "./components/FacadeAnalyzer";
-import Tryout from "./components/Tryout"; // ✅ Nieuw toegevoegd
+import MultiGevelAnalyzer from "./components/FacadeAnalyzer";
+import Tryout from "./components/Tryout";
 import "./App.css";
 import ugentLogo from "./assets/UGent_logo.png";
 
 function App() {
   const [woningData, setWoningData] = useState(null);
+  const [gevelData, setGevelData] = useState([]);
 
   const handleSearch = async (formData) => {
     const url = `http://127.0.0.1:8000/zoek_woning?postcode=${formData.postcode}&gemeente=${formData.gemeente}&straat=${formData.straat}&huisnummer=${formData.huisnummer}`;
-
     try {
       const response = await fetch(url);
       const data = await response.json();
@@ -28,21 +28,23 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* ✅ HEADER MET UGENT LOGO EN TITEL */}
+      {/* ✅ HEADER */}
       <header className="app-header">
         <img src={ugentLogo} alt="UGent Logo" className="ugent-logo" />
         <h1 className="app-title">3D Woningmodellering op Basis van GIS-Data</h1>
       </header>
 
-      {/* ✅ GECENTREERD ZOEKFORMULIER */}
+      {/* ✅ ZOEKFORMULIER */}
       <div className="search-container">
         <SearchForm onSearch={handleSearch} />
       </div>
 
-      {/* ✅ RESULTATEN */}
+      {/* ✅ RESULTATEN EN KAART */}
       <div className="results-container">
         {woningData && <ResultsTable data={woningData} />}
         {woningData && woningData[0]?.geometry && <MapComponent geojson={woningData[0].geometry} />}
+
+        {/* ✅ 3D MODEL */}
         {woningData && woningData[0]?.geometry && (
           <div className="model-container">
             <Canvas style={{ width: "100%", height: "500px" }}>
@@ -54,20 +56,30 @@ function App() {
           </div>
         )}
 
-        {/* ✅ DRAG-AND-DROP INTERFACE VOOR BINNENMUREN */}
+        {/* ✅ INTERACTIEVE EDITOR EN GEVELANALYSE */}
         <div className="walls-container">
           <h2>🛠️ Voeg Binnenmuren Toe</h2>
+
           {woningData && woningData[0]?.geometry && (
             <FloorPlanCanvas geojson={woningData[0].geometry} />
           )}
-          {/* Nieuw tekencomponent */}
-          <Tryout />
-        </div>
 
-        {/* ✅ NIEUW: GEVELANALYSE MET GOOGLE VISION */}
-        <div className="facade-analyzer-container">
-          <h2>🔎 Herken Openingen in een Gevelafbeelding</h2>
-          <FacadeAnalyzer />
+          {/* ✅ 1. GEVELANALYSE */}
+          <div className="facade-analyzer-container" style={{ marginTop: "40px" }}>
+            <h2>🔎 Herken Openingen in een Gevelafbeelding</h2>
+            <MultiGevelAnalyzer
+              onExport={(data) => {
+                console.log("📤 Geveldata doorgegeven aan Tryout:", data);
+                setGevelData(data);
+              }}
+            />
+          </div>
+
+          {/* ✅ 2. RUITEN TEKENEN */}
+          <div style={{ marginTop: "40px" }}>
+            <h2>🪟 Openingen Visualiseren op het Grondplan</h2>
+            <Tryout gevels={gevelData} />
+          </div>
         </div>
       </div>
     </div>
