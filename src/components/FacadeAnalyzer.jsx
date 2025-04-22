@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Stage, Layer, Image as KonvaImage, Line, Text, Circle, Rect } from "react-konva";
 import * as pc from "polygon-clipping";
 
+// voeg toe welke ruimten mogelijk zijn, eventueel zelf te kiezen ruimten ook
 const ruimteOpties = ["Onbekend", "Slaapkamer", "Keuken", "Living", "Badkamer", "Bureau"];
 const gevelTypes = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"];
 
@@ -69,14 +70,14 @@ const MultiGevelAnalyzer = ({ onExport }) => {
       });
 
       if (!response.ok) {
-        alert("Fout bij ophalen van Vision API (status: " + response.status + ")");
+        console.log("Fout bij ophalen van Vision API (status: " + response.status + ")");
         return;
       }
 
       const result = await response.json();
       const objects = result.responses?.[0]?.localizedObjectAnnotations || [];
       if (objects.length === 0) {
-        alert("Geen ramen of deuren gedetecteerd.");
+        console.log("Geen ramen of deuren gedetecteerd.");
         return;
       }
 
@@ -95,7 +96,7 @@ const MultiGevelAnalyzer = ({ onExport }) => {
 
       updateGevelField(index, "polygons", filtered);
     } catch (err) {
-      alert("Fout bij ophalen van Vision API");
+      console.log("Fout bij ophalen van Vision API");
     }
   };
 
@@ -175,7 +176,7 @@ const MultiGevelAnalyzer = ({ onExport }) => {
 
   return (
     <div>
-      <h2>🏠 Multi-gevelanalyse</h2>
+      <h2> Multi-gevelanalyse</h2>
       {gevels.map((g, i) => (
         <div key={i} style={{ marginBottom: 20, border: "1px solid #ccc", padding: 10 }}>
           <h3 onClick={() => handleToggle(i)} style={{ cursor: "pointer" }}>{g.open ? "▼" : "▶"} {g.gevelType}</h3>

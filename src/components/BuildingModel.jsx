@@ -7,7 +7,6 @@ const BuildingModel = ({ geojson, hnMax }) => {
   const meshRef = useRef();
   const { camera } = useThree();
 
-  // ✅ Camera-instelling
   useEffect(() => {
     if (hnMax) {
       camera.position.set(0, -hnMax * 3, hnMax * 2);
@@ -15,32 +14,31 @@ const BuildingModel = ({ geojson, hnMax }) => {
     }
   }, [camera, hnMax]); 
 
-  // ✅ Voorkom een "early return" voor hooks
   useFrame(() => {
     if (meshRef.current) {
-      meshRef.current.rotation.z += 0.005; // 🔄 Langzame rotatie rond de Z-as
+      meshRef.current.rotation.z += 0.005;
     }
   });
 
-  // ✅ Controleer of er data is
+  
   if (!geojson || !geojson.coordinates) {
-    console.warn("❌ Geen geojson-data ontvangen!");
+    console.warn("Geen geojson-data ontvangen!");
     return null;
   }
 
-  console.log("📌 Ontvangen geojson:", geojson);
-  console.log("🏠 Ontvangen HN_MAX:", hnMax);
+  console.log("Ontvangen geojson:", geojson);
+  console.log("Ontvangen HN_MAX:", hnMax);
 
   const coordinates = geojson.coordinates[0];
 
   if (!coordinates || coordinates.length < 3) {
-    console.warn("❌ Te weinig punten voor een gebouw!");
+    console.warn("Te weinig punten voor een gebouw!");
     return null;
   }
 
-  console.log("📌 Oorspronkelijke coördinaten (graden):", coordinates);
+  console.log("Oorspronkelijke coördinaten (graden):", coordinates);
 
-  // ✅ Zet WGS84 naar Belgische Lambert 72 (EPSG:31370)
+  // Zet WGS84 naar Belgische Lambert 72 (EPSG:31370)
   proj4.defs([
     ["EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs"],
     [
@@ -53,7 +51,7 @@ const BuildingModel = ({ geojson, hnMax }) => {
     proj4("EPSG:4326", "EPSG:31370", [lon, lat])
   );
 
-  console.log("📌 Omgezette coördinaten (meters):", convertedCoords);
+  console.log("Omgezette coördinaten (meters):", convertedCoords);
 
   // ✅ Centreer de coördinaten rond (0,0)
   const minX = Math.min(...convertedCoords.map(([x]) => x));
@@ -66,9 +64,8 @@ const BuildingModel = ({ geojson, hnMax }) => {
     y - centerY,
   ]);
 
-  console.log("📌 Gecentreerde coördinaten:", centeredCoords);
+  console.log("Gecentreerde coördinaten:", centeredCoords);
 
-  // ✅ Maak een Three.js shape
   const shape = new THREE.Shape();
   centeredCoords.forEach(([x, y], index) => {
     if (index === 0) {
@@ -78,9 +75,9 @@ const BuildingModel = ({ geojson, hnMax }) => {
     }
   });
 
-  // ✅ Gebouwhoogte op basis van HN_MAX
+
   const buildingHeight = hnMax || 10;
-  console.log("🏗️ Gebouwhoogte ingesteld op:", buildingHeight, "meter");
+  console.log("Gebouwhoogte ingesteld op:", buildingHeight, "meter");
 
   return (
     <mesh ref={meshRef} position={[0, 0, 0]} rotation={[0, 0, 0]}>
