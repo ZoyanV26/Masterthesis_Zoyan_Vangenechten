@@ -78,7 +78,8 @@ function App() {
           {/* ✅ 2. RUITEN TEKENEN */}
           <div style={{ marginTop: "40px" }}>
             <h2>🪟 Openingen Visualiseren op het Grondplan</h2>
-            <Tryout gevels={gevelData} />
+            <Tryout gevelExportData={gevelData} />
+
           </div>
         </div>
       </div>

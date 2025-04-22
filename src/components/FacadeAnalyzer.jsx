@@ -24,6 +24,7 @@ const MultiGevelAnalyzer = ({ onExport }) => {
   );
 
   const [selectedPolygonIndex, setSelectedPolygonIndex] = useState(null);
+  const [typeOpening, setTypeOpening] = useState("Window");
   const [actieveGevelIndex, setActieveGevelIndex] = useState(null);
 
   const updateGevelField = (index, key, value) => {
@@ -123,7 +124,7 @@ const MultiGevelAnalyzer = ({ onExport }) => {
         const { start } = g.nieuwePolygon;
         const poly = {
           id: g.polygons.length + 1,
-          name: "Manual",
+          name: typeOpening,
           ruimte: "Onbekend",
           points: [
             { x: start.x / g.displaySize.width, y: start.y / g.displaySize.height },
@@ -192,6 +193,12 @@ const MultiGevelAnalyzer = ({ onExport }) => {
                     style={{ display: "none" }}
                   />
                 )}
+                <label>Type opening: </label>
+                <select value={typeOpening} onChange={(e) => setTypeOpening(e.target.value)}>
+                  <option value="Window">Venster</option>
+                  <option value="Door">Deur</option>
+                </select>
+
                 <button onClick={() => toggleSchaalLijn(i)}>{g.schaalLijnActief ? "❌ Stop Schaallijn" : "📏 Start Schaallijn"}</button>
                 <button onClick={() => toggleTekenModus(i)}>{g.tekenActief ? "❌ Stop Tekenmodus" : "🟥 Teken venster"}</button>
 
