@@ -36,6 +36,8 @@ export default function Tryout({ gevelExportData }) {
   const [mode, setMode] = useState("draw");
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: offsetX, y: offsetY });
+  const [verdieping, setVerdieping] = useState(0); // 0 = gelijkvloers
+
 
   const gevelKoppelingen = {
     "Voorgevel": 0,
@@ -291,7 +293,6 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
   const afbeeldingBreedte = gevel.displaySize.width;
   const afbeeldingHoogte = gevel.displaySize.height;
 
-  // ❌ NIET vermenigvuldigen – schaallijn zit al in echte pixels
   const [p1, p2] = gevel.scaleLine;
   const x1_px = p1.x;
   const y1_px = p1.y;
@@ -313,38 +314,57 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
 
   gevel.polygons.forEach((poly) => {
     if (poly.points.length < 2) return;
-
-    // ✅ Zet polygonpunten om naar echte pixels
+  
     const points = poly.points.map(p => ({
       x: p.x * afbeeldingBreedte,
       y: p.y * afbeeldingHoogte
     }));
-
+  
+    // Middelpunt polygon
+    const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+  
+    // Middelpunt schaallijn
+    const ySchaallijn = (p1.y + p2.y) / 2;
+  
+    // Verticale afstand tot schaallijn
+    const deltaY = ySchaallijn - centerY;
+    const hoogteMeters = deltaY / pixelPerMeter;
+  
+    // Verdieping bepalen
+    const standaardVerdiepingHoogte = 3;
+    const polyVerdieping = Math.floor(hoogteMeters / standaardVerdiepingHoogte);
+  
+    // Filter: alleen polygonen op de gekozen verdieping
+    if (polyVerdieping !== verdieping) return;
+  
+    // Breedte in pixels en meters
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
-    const centerX = (minX + maxX) / 2;
     const breedtePx = maxX - minX;
-
     const breedteMeters = breedtePx / pixelPerMeter;
     const breedte = breedteMeters * SCALE;
+    const ratioOpAfbeelding = (minX + breedtePx / 2) / afbeeldingBreedte;
+    const muurIsOmgekeerd = muurUx < 0; // muur loopt van rechts naar links
+    const ratioCorrected = muurIsOmgekeerd ? 1 - ratioOpAfbeelding : ratioOpAfbeelding;
+    const projectieX = muur.x1 + muurUx * (ratioCorrected * muurLen);
+    const projectieY = muur.y1 + muurUy * (ratioCorrected * muurLen);
 
-    const ratioOpAfbeelding = centerX / afbeeldingBreedte;
-    const projectieX = muur.x1 + muurUx * (ratioOpAfbeelding * muurLen);
-    const projectieY = muur.y1 + muurUy * (ratioOpAfbeelding * muurLen);
-
+  
     const x1 = projectieX - (muurUx * breedte) / 2;
     const y1 = projectieY - (muurUy * breedte) / 2;
     const x2 = projectieX + (muurUx * breedte) / 2;
     const y2 = projectieY + (muurUy * breedte) / 2;
-
+  
     const segment = { x1, y1, x2, y2 };
-
+  
     if (poly.name === "Window") {
       setWindows(prev => [...prev, segment]);
     } else if (poly.name === "Door") {
       setDoors(prev => [...prev, segment]);
     }
   });
+  
+
 
   console.log("✅ Geprojecteerde polygonen op muur:", gevelType);
 };
@@ -373,6 +393,14 @@ return (
     {type}
     </button>
     ))}
+  <div style={{ marginBottom: 10 }}>
+    <label>🏢 Kies verdieping: </label>
+    <select value={verdieping} onChange={(e) => setVerdieping(parseInt(e.target.value))}>
+      {[0, 1, 2, 3, 4].map((v) => (
+        <option key={v} value={v}>Verdieping {v}</option>
+      ))}
+    </select>
+  </div>
 
     <Stage
       width={CANVAS_WIDTH}
