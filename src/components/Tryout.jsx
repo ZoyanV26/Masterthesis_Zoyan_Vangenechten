@@ -33,10 +33,12 @@ export default function Tryout({ gevelExportData }) {
   const [rooms, setRooms] = useState([]);
   const [windows, setWindows] = useState([]);
   const [doors, setDoors] = useState([]);
-  const [mode, setMode] = useState("draw");
+  const [mode, setMode] = useState("none");
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: offsetX, y: offsetY });
   const [verdieping, setVerdieping] = useState(0); // 0 = gelijkvloers
+  const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
+
 
 
   const gevelKoppelingen = {
@@ -55,6 +57,22 @@ export default function Tryout({ gevelExportData }) {
   useEffect(() => {
     console.log("gevelExportData ontvangen:", gevelExportData);
   }, [gevelExportData]);
+  useEffect(() => {
+    const veiligeData = {
+      windows: [],
+      doors: [],
+      walls: [],
+      rooms: [],
+      ...(verdiepingGegevens[verdieping] || {})
+    };
+    setWindows(veiligeData.windows);
+    setDoors(veiligeData.doors);
+    setWalls(veiligeData.walls);
+    setRooms(veiligeData.rooms);
+  }, [verdieping, verdiepingGegevens]);
+  
+  
+  
 
 
 
@@ -208,6 +226,19 @@ const handleClick = (e) => {
       setDrawingWall(null);
     }
   }
+// Sla huidige muren en kamers op bij verdieping
+// Sla huidige muren en kamers op bij verdieping (met veilige arrays)
+setVerdiepingGegevens(prev => ({
+  ...prev,
+  [verdieping]: {
+    windows: Array.isArray(prev[verdieping]?.windows) ? prev[verdieping].windows : [],
+    doors: Array.isArray(prev[verdieping]?.doors) ? prev[verdieping].doors : [],
+    walls,
+    rooms
+  }
+}));
+
+
 };
 
   const handleMouseMove = (e) => {
@@ -286,6 +317,77 @@ const handleGevelToewijzing = (gevelType) => {
 
 };
 
+const verwerkAlleGevels = () => {
+  const nieuweVerdiepData = {};
+
+  walls.forEach((muur) => {
+    const gevelType = muur.gevelType;
+    if (!gevelType) return;
+    const gevel = gevelExportData?.find(g => g.gevelType === gevelType);
+    if (!gevel || gevel.polygons.length === 0 || gevel.scaleLine.length !== 2) return;
+
+    const afbeeldingBreedte = gevel.displaySize.width;
+    const afbeeldingHoogte = gevel.displaySize.height;
+    const [p1, p2] = gevel.scaleLine;
+    const pixelAfstand = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+    const muurLengteCanvas = distance(muur.x1, muur.y1, muur.x2, muur.y2);
+    const muurLengteMeters = muurLengteCanvas / SCALE;
+    const pixelPerMeter = pixelAfstand / muurLengteMeters;
+
+    let muurDx = muur.x2 - muur.x1;
+    let muurDy = muur.y2 - muur.y1;
+    const muurLen = Math.sqrt(muurDx * muurDx + muurDy * muurDy);
+    muurDx /= muurLen;
+    muurDy /= muurLen;
+
+    gevel.polygons.forEach((poly) => {
+      const points = poly.points.map(p => ({
+        x: p.x * afbeeldingBreedte,
+        y: p.y * afbeeldingHoogte
+      }));
+
+      const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+      const ySchaallijn = (p1.y + p2.y) / 2;
+      const hoogteMeters = (ySchaallijn - centerY) / pixelPerMeter;
+      const verdiepingIndex = Math.floor(hoogteMeters / 3);
+
+      const minX = Math.min(...points.map(p => p.x));
+      const maxX = Math.max(...points.map(p => p.x));
+      const breedtePx = maxX - minX;
+      const breedteMeters = breedtePx / pixelPerMeter;
+      const breedte = breedteMeters * SCALE;
+      const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+      const startXAfbeelding = Math.min(p1.x, p2.x);
+      const endXAfbeelding = Math.max(p1.x, p2.x);
+      const ratioOpAfbeelding = (centerX - startXAfbeelding) / (endXAfbeelding - startXAfbeelding);
+      const moetSpiegelen = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"].includes(gevelType);
+      const ratioCorrected = moetSpiegelen ? 1 - ratioOpAfbeelding : ratioOpAfbeelding;
+      const projectieX = muur.x1 + muurDx * (ratioCorrected * muurLen);
+      const projectieY = muur.y1 + muurDy * (ratioCorrected * muurLen);
+      const x1 = projectieX - (muurDx * breedte) / 2;
+      const y1 = projectieY - (muurDy * breedte) / 2;
+      const x2 = projectieX + (muurDx * breedte) / 2;
+      const y2 = projectieY + (muurDy * breedte) / 2;
+      const segment = { x1, y1, x2, y2 };
+
+      if (!nieuweVerdiepData[verdiepingIndex]) {
+        nieuweVerdiepData[verdiepingIndex] = { windows: [], doors: [] };
+      }
+      if (poly.name === "Window") nieuweVerdiepData[verdiepingIndex].windows.push(segment);
+      else if (poly.name === "Door") nieuweVerdiepData[verdiepingIndex].doors.push(segment);
+    });
+  });
+  Object.keys(verdiepingGegevens).forEach(v => {
+    if (!nieuweVerdiepData[v]) nieuweVerdiepData[v] = {};
+    const verdiep = verdiepingGegevens[v] || {};
+    nieuweVerdiepData[v].walls = Array.isArray(verdiep.walls) ? verdiep.walls : [];
+    nieuweVerdiepData[v].rooms = Array.isArray(verdiep.rooms) ? verdiep.rooms : [];
+
+  });
+  
+  setVerdiepingGegevens(nieuweVerdiepData);
+};
+
 const projecteerPolygonenOpMuur = (gevelType, muur) => {
   const gevel = gevelExportData?.find(g => g.gevelType === gevelType);
   if (!gevel || gevel.polygons.length === 0 || gevel.scaleLine.length !== 2) return;
@@ -343,11 +445,43 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
     const breedtePx = maxX - minX;
     const breedteMeters = breedtePx / pixelPerMeter;
     const breedte = breedteMeters * SCALE;
-    const ratioOpAfbeelding = (minX + breedtePx / 2) / afbeeldingBreedte;
-    const muurIsOmgekeerd = muurUx < 0; // muur loopt van rechts naar links
-    const ratioCorrected = muurIsOmgekeerd ? 1 - ratioOpAfbeelding : ratioOpAfbeelding;
-    const projectieX = muur.x1 + muurUx * (ratioCorrected * muurLen);
-    const projectieY = muur.y1 + muurUy * (ratioCorrected * muurLen);
+    // 🔄 Gebruik het centrum van de polygon en vergelijk met breedte van afbeelding
+    const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+
+    // 🧭 Corrigeer richting van muur (van links naar rechts op afbeelding!)
+    const startXAfbeelding = Math.min(p1.x, p2.x);
+    const endXAfbeelding = Math.max(p1.x, p2.x);
+    const ratioOpAfbeelding = (centerX - startXAfbeelding) / (endXAfbeelding - startXAfbeelding);
+
+    // Altijd projectie berekenen van links naar rechts, onafhankelijk van muur-richting
+    const startX = muur.x1;
+    const endX = muur.x2;
+    const startY = muur.y1;
+    const endY = muur.y2;
+
+    const muurStart = { x: startX, y: startY };
+    const muurEind = { x: endX, y: endY };
+
+    // Bepaal absolute richting vector van muur
+    let muurUx = muurEind.x - muurStart.x;
+    let muurUy = muurEind.y - muurStart.y;
+    const muurLen = Math.sqrt(muurUx * muurUx + muurUy * muurUy);
+    muurUx /= muurLen;
+    muurUy /= muurLen;
+
+    // Bepaal ratio op afbeelding
+    
+
+    // 🔄 Spiegel als het een voor- of achtergevel is
+    const moetSpiegelen = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"].includes(gevelType);
+
+    const ratioCorrected = moetSpiegelen ? 1 - ratioOpAfbeelding : ratioOpAfbeelding;
+
+    // Projecteer langs de muur
+    const projectieX = muurStart.x + muurUx * (ratioCorrected * muurLen);
+    const projectieY = muurStart.y + muurUy * (ratioCorrected * muurLen);
+
+
 
   
     const x1 = projectieX - (muurUx * breedte) / 2;
@@ -357,11 +491,35 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
   
     const segment = { x1, y1, x2, y2 };
   
-    if (poly.name === "Window") {
-      setWindows(prev => [...prev, segment]);
-    } else if (poly.name === "Door") {
-      setDoors(prev => [...prev, segment]);
-    }
+    setVerdiepingGegevens(prev => {
+      const huidige = {
+        windows: Array.isArray(prev[polyVerdieping]?.windows) ? prev[polyVerdieping].windows : [],
+        doors: Array.isArray(prev[polyVerdieping]?.doors) ? prev[polyVerdieping].doors : [],
+      };
+      
+      if (poly.name === "Window") {
+        return {
+          ...prev,
+          [polyVerdieping]: {
+            ...huidige,
+            windows: [...huidige.windows, segment],
+            doors: huidige.doors
+          }
+        };
+      } else if (poly.name === "Door") {
+        return {
+          ...prev,
+          [polyVerdieping]: {
+            ...huidige,
+            windows: huidige.windows,
+            doors: [...huidige.doors, segment]
+          }
+        };
+      } else {
+        return prev;
+      }
+    });
+    
   });
   
 
@@ -375,8 +533,10 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
 
 return (
   <div>
+    <button onClick={verwerkAlleGevels} style={{ marginRight: 8 }}>📥 Laad alle geveldata</button>
     <h3>🧭 Modusselectie:</h3>
-    <button onClick={() => setMode("draw")} style={{ marginRight: 8 }}>➕ Teken muur</button>
+    <button onClick={() => setMode("draw")} style={{ marginRight: 8 }}>➕ Tekenmodus</button>
+    <button onClick={() => setMode("none")} style={{ marginRight: 8 }}>⛔ Stop tekenmodus</button>
     <button onClick={() => setMode("delete")} style={{ marginRight: 8 }}>🗑️ Verwijder muur</button>
     <button onClick={() => setMode("select")} style={{ marginRight: 8 }}>🏠 Selecteer kamer</button>
     <button onClick={() => setMode("addWindow")} style={{ marginRight: 8 }}>🪟 Voeg ruit toe</button>
@@ -396,10 +556,12 @@ return (
   <div style={{ marginBottom: 10 }}>
     <label>🏢 Kies verdieping: </label>
     <select value={verdieping} onChange={(e) => setVerdieping(parseInt(e.target.value))}>
-      {[0, 1, 2, 3, 4].map((v) => (
+      {[...new Set([verdieping, ...Object.keys(verdiepingGegevens)])].map((v) => (
         <option key={v} value={v}>Verdieping {v}</option>
       ))}
     </select>
+
+
   </div>
 
     <Stage
@@ -442,7 +604,7 @@ return (
           );
         })}
 
-        {rooms.map((room, i) => (
+        {(rooms || []).map((room, i) => (
           <React.Fragment key={i}>
             {room.map((cell, j) => (
               <Rect
