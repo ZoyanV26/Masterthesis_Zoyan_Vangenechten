@@ -47,7 +47,21 @@ export default function Tryout({ gevelExportData }) {
   };
   
   const getFootprintWalls = () => getVerdiepData(0).walls;
-  const getInteriorWalls = () => verdieping === 0 ? [] : getVerdiepData(verdieping).walls;
+  const getInteriorWalls = () => {
+    const alleMuren = getVerdiepData(verdieping).walls || [];
+    const footprintMuren = getFootprintWalls();
+    
+    // Filter muren die niet exact overeenkomen met de footprint
+    return alleMuren.filter(
+      muur => !footprintMuren.some(fp =>
+        fp.x1 === muur.x1 &&
+        fp.y1 === muur.y1 &&
+        fp.x2 === muur.x2 &&
+        fp.y2 === muur.y2
+      )
+    );
+  };
+  
 
   
 
@@ -103,11 +117,12 @@ export default function Tryout({ gevelExportData }) {
     }
     setVerdiepingGegevens(prev => ({
       ...prev,
-      [verdieping]: {
-        ...getVerdiepData(verdieping),
-        walls: newWalls
+      0: {
+        ...getVerdiepData(0),
+        walls: newWalls // ⬅️ Alleen op gelijkvloers bewaren
       }
     }));
+    
     
 
     
@@ -221,6 +236,7 @@ const handleClick = (e) => {
 
     if (closest && clickedProjection) {
       const input = prompt(`Geef de lengte van de ${mode === "addDoor" ? "deur" : "ruit"} in meters:`, "1");
+
       const lengthMeters = parseFloat(input);
       if (isNaN(lengthMeters) || lengthMeters <= 0) return;
 
