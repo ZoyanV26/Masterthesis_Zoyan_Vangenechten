@@ -25,20 +25,31 @@ const exampleGeojson = {
 const distance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 
 export default function Tryout({ gevelExportData }) {
-  const [walls, setWalls] = useState([]);
   const [selectedWallIndex, setSelectedWallIndex] = useState(null);
   const [drawingWall, setDrawingWall] = useState(null);
   const [mousePos, setMousePos] = useState(null);
   const [hoveredWallIndex, setHoveredWallIndex] = useState(null);
-  const [rooms, setRooms] = useState([]);
-  const [windows, setWindows] = useState([]);
-  const [doors, setDoors] = useState([]);
   const [mode, setMode] = useState("none");
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: offsetX, y: offsetY });
   const [verdieping, setVerdieping] = useState(0); // 0 = gelijkvloers
   const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
 
+
+  const getVerdiepData = (v) => {
+    const data = verdiepingGegevens[v];
+    return {
+      walls: data?.walls || [],
+      rooms: data?.rooms || [],
+      windows: data?.windows || [],
+      doors: data?.doors || []
+    };
+  };
+  
+  const getFootprintWalls = () => getVerdiepData(0).walls;
+  const getInteriorWalls = () => verdieping === 0 ? [] : getVerdiepData(verdieping).walls;
+
+  
 
 
   const gevelKoppelingen = {
@@ -57,25 +68,6 @@ export default function Tryout({ gevelExportData }) {
   useEffect(() => {
     console.log("gevelExportData ontvangen:", gevelExportData);
   }, [gevelExportData]);
-  useEffect(() => {
-    const veiligeData = {
-      windows: [],
-      doors: [],
-      walls: [],
-      rooms: [],
-      ...(verdiepingGegevens[verdieping] || {})
-    };
-    setWindows(veiligeData.windows);
-    setDoors(veiligeData.doors);
-    setWalls(veiligeData.walls);
-    setRooms(veiligeData.rooms);
-  }, [verdieping, verdiepingGegevens]);
-  
-  
-  
-
-
-
 
   useEffect(() => {
     if (!exampleGeojson?.coordinates) return;
@@ -109,7 +101,14 @@ export default function Tryout({ gevelExportData }) {
         length: distance(x1m, y1m, x2m, y2m).toFixed(2)
       });
     }
-    setWalls(newWalls);
+    setVerdiepingGegevens(prev => ({
+      ...prev,
+      [verdieping]: {
+        ...getVerdiepData(verdieping),
+        walls: newWalls
+      }
+    }));
+    
 
     
   }, [gevelExportData]);
@@ -131,35 +130,63 @@ const handleClick = (e) => {
     return;
   }
   if (mode === "delete") {
-    const toDelete = walls.findIndex(
+    const huidige = getVerdiepData(verdieping);
+    const toDelete = huidige.walls.findIndex(
       (wall) => pointToSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2) < WALL_THICKNESS / 2
     );
     if (toDelete !== -1) {
-      const updated = [...walls];
+      const updated = [...huidige.walls];
       updated.splice(toDelete, 1);
-      setWalls(updated);
+      setVerdiepingGegevens(prev => ({
+        ...prev,
+        [verdieping]: {
+          ...huidige,
+          walls: updated
+        }
+      }));
     }
     return;
   }
+  
   if (mode === "deleteWindow") {
-    const toDelete = windows.findIndex(
+    const huidige = getVerdiepData(verdieping);
+    const toDelete = huidige.windows.findIndex(
+
       (w) => pointToSegment(x, y, w.x1, w.y1, w.x2, w.y2) < WALL_THICKNESS / 2
     );
     if (toDelete !== -1) {
-      const updated = [...windows];
+      const huidige = getVerdiepData(verdieping);
+      const updated = [...huidige.windows];
       updated.splice(toDelete, 1);
-      setWindows(updated);
+      setVerdiepingGegevens(prev => ({
+        ...prev,
+        [verdieping]: {
+          ...huidige,
+          windows: updated
+        }
+      }));
+
     }
     return;
   }
   if (mode === "deleteDoor") {
-    const toDelete = doors.findIndex(
+    const huidige = getVerdiepData(verdieping);
+    const toDelete = huidige.doors.findIndex(
       (d) => pointToSegment(x, y, d.x1, d.y1, d.x2, d.y2) < WALL_THICKNESS / 2
     );
+
     if (toDelete !== -1) {
-      const updated = [...doors];
+      const huidige = getVerdiepData(verdieping);
+      const updated = [...huidige.doors];
       updated.splice(toDelete, 1);
-      setDoors(updated);
+      setVerdiepingGegevens(prev => ({
+        ...prev,
+        [verdieping]: {
+          ...huidige,
+          doors: updated
+        }
+      }));
+
     }
     return;
   }
@@ -168,7 +195,7 @@ const handleClick = (e) => {
     let minDist = Infinity;
     let clickedProjection = null;
 
-    for (const wall of walls) {
+    for (const wall of getVerdiepData(verdieping).walls)      {
       const dist = pointToSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2);
       if (dist < minDist && dist < WALL_THICKNESS * 2) {
         minDist = dist;
@@ -206,8 +233,25 @@ const handleClick = (e) => {
       const y2 = y + (uy * elemLen) / 2;
 
       const newElem = { x1, y1, x2, y2 };
-      if (mode === "addWindow") setWindows([...windows, newElem]);
-      else if (mode === "addDoor") setDoors([...doors, newElem]);
+      const huidige = getVerdiepData(verdieping);
+      if (mode === "addWindow") {
+        setVerdiepingGegevens(prev => ({
+          ...prev,
+          [verdieping]: {
+            ...huidige,
+            windows: [...huidige.windows, newElem]
+          }
+        }));
+      } else if (mode === "addDoor") {
+        setVerdiepingGegevens(prev => ({
+          ...prev,
+          [verdieping]: {
+            ...huidige,
+            doors: [...huidige.doors, newElem]
+          }
+        }));
+      }
+
     }
     return;
   }
@@ -222,23 +266,18 @@ const handleClick = (e) => {
         y2: y,
         length: (distance(drawingWall.x1, drawingWall.y1, x, y) / SCALE).toFixed(2)
       };
-      setWalls([...walls, newWall]);
+      const nieuweWalls = [...getVerdiepData(verdieping).walls, newWall];
+      setVerdiepingGegevens(prev => ({
+        ...prev,
+        [verdieping]: {
+          ...getVerdiepData(verdieping),
+          walls: nieuweWalls
+        }
+      }));
+
       setDrawingWall(null);
     }
   }
-// Sla huidige muren en kamers op bij verdieping
-// Sla huidige muren en kamers op bij verdieping (met veilige arrays)
-setVerdiepingGegevens(prev => ({
-  ...prev,
-  [verdieping]: {
-    windows: Array.isArray(prev[verdieping]?.windows) ? prev[verdieping].windows : [],
-    doors: Array.isArray(prev[verdieping]?.doors) ? prev[verdieping].doors : [],
-    walls,
-    rooms
-  }
-}));
-
-
 };
 
   const handleMouseMove = (e) => {
@@ -276,11 +315,24 @@ const floodFill = (x, y) => {
       }
     }
   }
-  setRooms(prev => [...prev, filled]);
+  setVerdiepingGegevens(prev => {
+    const huidige = getVerdiepData(verdieping);
+    return {
+      ...prev,
+      [verdieping]: {
+        ...huidige,
+        rooms: [...huidige.rooms, filled]
+      }
+    };
+  });
+  
 };
 
 const touchesWall = (x, y) => {
-  return walls.some((wall) => pointToSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2) < WALL_THICKNESS / 2);
+  return getVerdiepData(verdieping).walls.some((wall) =>
+    pointToSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2) < WALL_THICKNESS / 2
+  );
+  
 };
 
 const pointToSegment = (px, py, x1, y1, x2, y2) => {
@@ -303,9 +355,8 @@ const pointToSegment = (px, py, x1, y1, x2, y2) => {
 
 const handleGevelToewijzing = (gevelType) => {
   if (selectedWallIndex === null) return;
-  const updated = [...walls];
+  const updated = [...getVerdiepData(verdieping).walls];
   updated[selectedWallIndex].gevelType = gevelType;
-  setWalls(updated);
 
   const muur = updated[selectedWallIndex];
   projecteerPolygonenOpMuur(gevelType, muur);
@@ -320,7 +371,7 @@ const handleGevelToewijzing = (gevelType) => {
 const verwerkAlleGevels = () => {
   const nieuweVerdiepData = {};
 
-  walls.forEach((muur) => {
+  getVerdiepData(verdieping).walls.forEach((muur) => {
     const gevelType = muur.gevelType;
     if (!gevelType) return;
     const gevel = gevelExportData?.find(g => g.gevelType === gevelType);
@@ -377,15 +428,17 @@ const verwerkAlleGevels = () => {
       else if (poly.name === "Door") nieuweVerdiepData[verdiepingIndex].doors.push(segment);
     });
   });
-  Object.keys(verdiepingGegevens).forEach(v => {
-    if (!nieuweVerdiepData[v]) nieuweVerdiepData[v] = {};
-    const verdiep = verdiepingGegevens[v] || {};
-    nieuweVerdiepData[v].walls = Array.isArray(verdiep.walls) ? verdiep.walls : [];
-    nieuweVerdiepData[v].rooms = Array.isArray(verdiep.rooms) ? verdiep.rooms : [];
 
-  });
+  setVerdiepingGegevens(prev => ({
+    ...prev,
+    ...nieuweVerdiepData,
+    0: {
+      ...prev[0], // behoud bestaande footprint op gelijkvloers
+      windows: nieuweVerdiepData[0]?.windows || prev[0]?.windows || [],
+      doors: nieuweVerdiepData[0]?.doors || prev[0]?.doors || [],
+    }
+  }));
   
-  setVerdiepingGegevens(nieuweVerdiepData);
 };
 
 const projecteerPolygonenOpMuur = (gevelType, muur) => {
@@ -492,11 +545,7 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
     const segment = { x1, y1, x2, y2 };
   
     setVerdiepingGegevens(prev => {
-      const huidige = {
-        windows: Array.isArray(prev[polyVerdieping]?.windows) ? prev[polyVerdieping].windows : [],
-        doors: Array.isArray(prev[polyVerdieping]?.doors) ? prev[polyVerdieping].doors : [],
-      };
-      
+      const huidige = prev[polyVerdieping] || { windows: [], doors: [] };
       if (poly.name === "Window") {
         return {
           ...prev,
@@ -556,11 +605,10 @@ return (
   <div style={{ marginBottom: 10 }}>
     <label>🏢 Kies verdieping: </label>
     <select value={verdieping} onChange={(e) => setVerdieping(parseInt(e.target.value))}>
-      {[...new Set([verdieping, ...Object.keys(verdiepingGegevens)])].map((v) => (
+      {Object.keys(verdiepingGegevens).map((v) => (
         <option key={v} value={v}>Verdieping {v}</option>
       ))}
     </select>
-
 
   </div>
 
@@ -604,7 +652,7 @@ return (
           );
         })}
 
-        {(rooms || []).map((room, i) => (
+        {getVerdiepData(verdieping).rooms.map((room, i) => (
           <React.Fragment key={i}>
             {room.map((cell, j) => (
               <Rect
@@ -626,7 +674,7 @@ return (
           </React.Fragment>
         ))}
 
-        {walls.map((wall, index) => {
+        {[...getFootprintWalls(), ...getInteriorWalls()].map((wall, index) => {
           const dx = wall.x2 - wall.x1;
           const dy = wall.y2 - wall.y1;
           const len = Math.sqrt(dx * dx + dy * dy);
@@ -638,6 +686,7 @@ return (
           const y2 = wall.y2 + uy * WALL_OVERSHOOT;
           const midX = (wall.x1 + wall.x2) / 2;
           const midY = (wall.y1 + wall.y2) / 2;
+
           return (
             <Group key={`wall-${index}`}>
               <Line
@@ -646,7 +695,6 @@ return (
                 strokeWidth={WALL_THICKNESS}
                 onClick={() => setSelectedWallIndex(index)}
               />
-
               <Text
                 text={`${wall.length} m`}
                 x={midX + 5}
@@ -658,6 +706,7 @@ return (
           );
         })}
 
+
         {drawingWall && mousePos && (
           <Line
             points={[drawingWall.x1, drawingWall.y1, drawingWall.x2, drawingWall.y2]}
@@ -667,7 +716,7 @@ return (
           />
         )}
 
-        {windows.map((win, i) => (
+        {getVerdiepData(verdieping).windows.map((win, i) => (
           <React.Fragment key={`win-${i}`}>
             <Line
               points={[win.x1, win.y1, win.x2, win.y2]}
@@ -685,7 +734,7 @@ return (
         ))}
 
 
-        {doors.map((door, i) => (
+        {getVerdiepData(verdieping).doors.map((door, i) => (
           <React.Fragment key={`door-${i}`}>
             <Line
               points={[door.x1, door.y1, door.x2, door.y2]}
