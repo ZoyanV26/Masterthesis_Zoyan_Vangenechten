@@ -12,7 +12,7 @@ function MapZoomHandler({ geojson }) {
     const bounds = geoJsonLayer.getBounds();
 
     if (bounds.isValid()) {
-      map.fitBounds(bounds, { maxZoom: 18 });
+      map.fitBounds(bounds, { maxZoom: 50 });
     }
   }, [geojson, map]);
 

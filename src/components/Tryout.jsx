@@ -11,27 +11,20 @@ const GRID_SIZE = 10;
 const SCALE = 50;
 const WALL_THICKNESS = 10;
 const WALL_OVERSHOOT = 5;
-const CANVAS_WIDTH = 800;
+const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 600;
-const offsetX = CANVAS_WIDTH / 2;
-const offsetY = CANVAS_HEIGHT / 2;
-
-const exampleGeojson = {
-  coordinates: [[
-    [3.726, 51.05], [3.727, 51.05], [3.727, 51.051], [3.726, 51.051], [3.726, 51.05]
-  ]]
-};
+const offsetX = 0;
+const offsetY = 0;
 
 const distance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-
-export default function Tryout({ gevelExportData }) {
+export default function Tryout({ gevelExportData, polygonFromSearch }) {
   const [selectedWallIndex, setSelectedWallIndex] = useState(null);
   const [drawingWall, setDrawingWall] = useState(null);
   const [mousePos, setMousePos] = useState(null);
   const [hoveredWallIndex, setHoveredWallIndex] = useState(null);
   const [mode, setMode] = useState("none");
   const [stageScale, setStageScale] = useState(1);
-  const [stagePosition, setStagePosition] = useState({ x: offsetX, y: offsetY });
+  const [stagePosition, setStagePosition] = useState({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 });
   const [verdieping, setVerdieping] = useState(0); // 0 = gelijkvloers
   const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
 
@@ -46,7 +39,9 @@ export default function Tryout({ gevelExportData }) {
     };
   };
   
-  const getFootprintWalls = () => getVerdiepData(0).walls;
+  const getFootprintWalls = () =>
+    (verdiepingGegevens[0]?.walls || []).filter(w => w.isFootprint);
+  
   const getInteriorWalls = () => {
     const alleMuren = getVerdiepData(verdieping).walls || [];
     const footprintMuren = getFootprintWalls();
@@ -72,20 +67,16 @@ export default function Tryout({ gevelExportData }) {
     "Zijgevel Links": 2,
     "Zijgevel Rechts": 3,
   };
-  const gevelSegmentLengtes = {
-    "Voorgevel": 8.4,
-    "Achtergevel": 8.4,
-    "Zijgevel Links": 6.2,
-    "Zijgevel Rechts": 6.2,
-  };
 
   useEffect(() => {
     console.log("gevelExportData ontvangen:", gevelExportData);
   }, [gevelExportData]);
 
   useEffect(() => {
-    if (!exampleGeojson?.coordinates) return;
-    const coordinates = exampleGeojson.coordinates[0];
+    if (!polygonFromSearch || !Array.isArray(polygonFromSearch[0]) || polygonFromSearch[0].length < 2) return;
+
+    const coordinates = polygonFromSearch[0];
+
     proj4.defs([
       ["EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs"],
       [
@@ -93,40 +84,71 @@ export default function Tryout({ gevelExportData }) {
         "+proj=lcc +lat_1=49.8333339 +lat_2=51.1666672333333 +lat_0=90 +lon_0=4.36748666666667 +x_0=150000.01256 +y_0=5400088.4378 +datum=WGS84 +units=m +no_defs"
       ]
     ]);
-    const converted = coordinates.map(([lon, lat]) => proj4("EPSG:4326", "EPSG:31370", [lon, lat]));
+
+    const converted = coordinates.map(([lon, lat]) =>
+      proj4("EPSG:4326", "EPSG:31370", [lon, lat])
+    );
+
+    // Stap 2: centreren rond (0, 0)
     const minX = Math.min(...converted.map(([x]) => x));
     const minY = Math.min(...converted.map(([, y]) => y));
     const maxX = Math.max(...converted.map(([x]) => x));
     const maxY = Math.max(...converted.map(([, y]) => y));
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
+
     const centered = converted.map(([x, y]) => [x - centerX, y - centerY]);
-    const correctieFactor = 0.1;
-    const corrected = centered.map(([x, y]) => [x * correctieFactor, y * correctieFactor]);
+
+    // Stap 3: bepaal de langste zijde + draaihoek
+    let maxLength = 0;
+    let bestAngle = 0;
+    for (let i = 0; i < centered.length - 1; i++) {
+      const [x1, y1] = centered[i];
+      const [x2, y2] = centered[i + 1];
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      if (length > maxLength) {
+        maxLength = length;
+        bestAngle = -Math.atan2(dy, dx); // roteer zodat langste zijde horizontaal
+      }
+    }
+
+    // Stap 4: roteer alle punten
+    const rotated = centered.map(([x, y]) => {
+      const newX = x * Math.cos(bestAngle) - y * Math.sin(bestAngle);
+      const newY = x * Math.sin(bestAngle) + y * Math.cos(bestAngle);
+      return [newX, newY];
+    });
+
+    // Stap 5: spiegel alles over Y-as om oriëntatie te corrigeren
+    const mirrored = rotated.map(([x, y]) => [-x, y]);
+
+    // Stap 6: maak muren aan
     const newWalls = [];
-    for (let i = 0; i < corrected.length - 1; i++) {
-      const [x1m, y1m] = corrected[i];
-      const [x2m, y2m] = corrected[i + 1];
+    for (let i = 0; i < mirrored.length - 1; i++) {
+      const [x1m, y1m] = mirrored[i];
+      const [x2m, y2m] = mirrored[i + 1];
       newWalls.push({
         x1: x1m * SCALE,
         y1: y1m * SCALE,
         x2: x2m * SCALE,
         y2: y2m * SCALE,
-        length: distance(x1m, y1m, x2m, y2m).toFixed(2)
+        length: distance(x1m, y1m, x2m, y2m).toFixed(2),
+        isFootprint: true
       });
     }
+
+    // Stap 7: opslaan in state
     setVerdiepingGegevens(prev => ({
       ...prev,
       0: {
         ...getVerdiepData(0),
-        walls: newWalls // ⬅️ Alleen op gelijkvloers bewaren
+        walls: newWalls
       }
     }));
-    
-    
+  }, [polygonFromSearch]);
 
-    
-  }, [gevelExportData]);
 
 // Vervolg van component na useEffect
 
@@ -345,11 +367,19 @@ const floodFill = (x, y) => {
 };
 
 const touchesWall = (x, y) => {
-  return getVerdiepData(verdieping).walls.some((wall) =>
+  let muren = getVerdiepData(verdieping).walls;
+
+  // ⬇️ Voeg footprintmuren toe op verdiepingen > 0
+  if (verdieping > 0) {
+    const footprint = getFootprintWalls();
+    muren = [...muren, ...footprint];
+  }
+
+  return muren.some((wall) =>
     pointToSegment(x, y, wall.x1, wall.y1, wall.x2, wall.y2) < WALL_THICKNESS / 2
   );
-  
 };
+
 
 const pointToSegment = (px, py, x1, y1, x2, y2) => {
   const A = px - x1;
@@ -435,7 +465,7 @@ const verwerkAlleGevels = () => {
       const y1 = projectieY - (muurDy * breedte) / 2;
       const x2 = projectieX + (muurDx * breedte) / 2;
       const y2 = projectieY + (muurDy * breedte) / 2;
-      const segment = { x1, y1, x2, y2 };
+      const segment = { x1, y1, x2, y2, ruimte: poly.ruimte  };
 
       if (!nieuweVerdiepData[verdiepingIndex]) {
         nieuweVerdiepData[verdiepingIndex] = { windows: [], doors: [] };
@@ -558,7 +588,7 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
     const x2 = projectieX + (muurUx * breedte) / 2;
     const y2 = projectieY + (muurUy * breedte) / 2;
   
-    const segment = { x1, y1, x2, y2 };
+    const segment = { x1, y1, x2, y2, ruimte: poly.ruimte};
   
     setVerdiepingGegevens(prev => {
       const huidige = prev[polyVerdieping] || { windows: [], doors: [] };
@@ -658,12 +688,12 @@ return (
       style={{ border: "1px solid #ccc" }}
     >
       <Layer>
-        {[...Array(200)].map((_, i) => {
-          const pos = (i - 100) * GRID_SIZE;
+        {[...Array(1001).keys()].map((i) => {
+          const pos = (i - 500) * GRID_SIZE;
           return (
             <Group key={`grid-group-${i}`}>
-              <Line points={[pos, -1000, pos, 1000]} stroke="#eee" strokeWidth={1} />
-              <Line points={[-1000, pos, 1000, pos]} stroke="#eee" strokeWidth={1} />
+              <Line points={[pos, -100000, pos, 100000]} stroke="#eee" strokeWidth={1} />
+              <Line points={[-100000, pos, 100000, pos]} stroke="#eee" strokeWidth={1} />
             </Group>
           );
         })}
@@ -713,10 +743,10 @@ return (
               />
               <Text
                 text={`${wall.length} m`}
-                x={midX + 5}
-                y={midY + 5}
-                fontSize={12}
-                fill="#555"
+                x={midX + 20}
+                y={midY -30}
+                fontSize={15}
+                fill="#666"
               />
             </Group>
           );
@@ -740,11 +770,13 @@ return (
               strokeWidth={WALL_THICKNESS}
             />
             <Text
-              x={(win.x1 + win.x2) / 2 + 5}
-              y={(win.y1 + win.y2) / 2 + 5}
-              fontSize={10}
-              text={`W${i}`}
+              x={(win.x1 + win.x2) / 2-30}
+              y={(win.y1 + win.y2) / 2 +30}
+              fontSize={15}
+              text={win.ruimte ? '  ' + win.ruimte : ''}
               fill="blue"
+              align="center"
+
             />
           </React.Fragment>
         ))}
@@ -754,15 +786,16 @@ return (
           <React.Fragment key={`door-${i}`}>
             <Line
               points={[door.x1, door.y1, door.x2, door.y2]}
-              stroke="brown"
+              stroke="red"
               strokeWidth={WALL_THICKNESS}
             />
             <Text
-              x={(door.x1 + door.x2) / 2 + 5}
-              y={(door.y1 + door.y2) / 2 + 5}
-              fontSize={10}
-              text={`D${i}`}
-              fill="brown"
+              x={(door.x1 + door.x2) / 2 -20}
+              y={(door.y1 + door.y2) / 2 + 12}
+              fontSize={15}
+              text={door.ruimte ? '  ' + door.ruimte : ''}
+              fill="red"
+              allign="center"
             />
           </React.Fragment>
         ))}

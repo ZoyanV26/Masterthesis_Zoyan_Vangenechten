@@ -24,7 +24,7 @@ function MapComponent({ geojson }) {
   }
 
   return (
-    <MapContainer center={[51.0, 3.0]} zoom={13} style={{ height: "500px", width: "100%" }}>
+    <MapContainer center={[51.0, 3.0]} zoom={25} style={{ height: "500px", width: "100%" }}>
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       {geojson && <ClearOldGeoJSON geojson={geojson} />}
       {geojson && <MapZoomHandler geojson={geojson} />}

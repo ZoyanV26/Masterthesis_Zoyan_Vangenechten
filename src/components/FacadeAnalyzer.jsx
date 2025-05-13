@@ -3,7 +3,7 @@ import { Stage, Layer, Image as KonvaImage, Line, Text, Circle, Rect } from "rea
 import * as pc from "polygon-clipping";
 
 // voeg toe welke ruimten mogelijk zijn, eventueel zelf te kiezen ruimten ook
-const ruimteOpties = ["Onbekend", "Slaapkamer", "Keuken", "Living", "Badkamer", "Bureau"];
+const ruimteOpties = ["Berging","Badkamer", "Bureau","Garage","Hal","Keuken","Living","Slaapkamer","Toilet","Onbekend"];
 const gevelTypes = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"];
 
 const MultiGevelAnalyzer = ({ onExport }) => {

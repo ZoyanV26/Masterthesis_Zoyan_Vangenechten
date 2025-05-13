@@ -2,10 +2,8 @@ import React, { useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import SearchForm from "./components/SearchForm";
-import ResultsTable from "./components/ResultsTable";
 import MapComponent from "./components/MapComponent";
 import BuildingModel from "./components/BuildingModel";
-import FloorPlanCanvas from "./components/FloorPlanCanvas";
 import MultiGevelAnalyzer from "./components/FacadeAnalyzer";
 import Tryout from "./components/Tryout";
 import "./App.css";
@@ -14,7 +12,6 @@ import ugentLogo from "./assets/UGent_logo.png";
 function App() {
   const [woningData, setWoningData] = useState(null);
   const [gevelData, setGevelData] = useState([]);
-
   const handleSearch = async (formData) => {
     const url = `http://127.0.0.1:8000/zoek_woning?postcode=${formData.postcode}&gemeente=${formData.gemeente}&straat=${formData.straat}&huisnummer=${formData.huisnummer}`;
     try {
@@ -41,7 +38,7 @@ function App() {
 
       {/* ✅ RESULTATEN EN KAART */}
       <div className="results-container">
-        {woningData && <ResultsTable data={woningData} />}
+
         {woningData && woningData[0]?.geometry && <MapComponent geojson={woningData[0].geometry} />}
 
         {/* ✅ 3D MODEL */}
@@ -56,13 +53,6 @@ function App() {
           </div>
         )}
 
-        {/* ✅ INTERACTIEVE EDITOR EN GEVELANALYSE */}
-        <div className="walls-container">
-          <h2>🛠️ Voeg Binnenmuren Toe</h2>
-
-          {woningData && woningData[0]?.geometry && (
-            <FloorPlanCanvas geojson={woningData[0].geometry} />
-          )}
 
           {/* ✅ 1. GEVELANALYSE */}
           <div className="facade-analyzer-container" style={{ marginTop: "40px" }}>
@@ -78,10 +68,10 @@ function App() {
           {/* ✅ 2. RUITEN TEKENEN */}
           <div style={{ marginTop: "40px" }}>
             <h2>🪟 Openingen Visualiseren op het Grondplan</h2>
-            <Tryout gevelExportData={gevelData} />
+            <Tryout gevelExportData={gevelData} polygonFromSearch={woningData?.[0]?.geometry?.coordinates} />
+
 
           </div>
-        </div>
       </div>
     </div>
   );
