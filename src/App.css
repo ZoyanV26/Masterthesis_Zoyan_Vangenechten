@@ -75,7 +75,12 @@ body {
   flex-direction: column;
   align-items: center;
   margin-top: 20px;
+  width: 100%;
+  max-width: 1400px;   /* of breder indien gewenst */
+  margin-left: auto;
+  margin-right: auto;
 }
+
 
 /* ✅ Model container */
 .model-container {
@@ -89,3 +94,32 @@ body {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border-radius: 10px;
 }
+
+
+
+.model-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  margin-top: 30px;
+  width: 100%;
+  max-width: 1400px;
+  padding: 0 40px;
+  box-sizing: border-box;
+}
+
+
+.model-half {
+  width: 50%;
+  min-width: 0;
+  padding: 10px;
+  box-sizing: border-box;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+
+}
+
+

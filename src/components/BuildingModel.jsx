@@ -82,7 +82,7 @@ const BuildingModel = ({ geojson, hnMax }) => {
   return (
     <mesh ref={meshRef} position={[0, 0, 0]} rotation={[0, 0, 0]}>
       <extrudeGeometry args={[shape, { depth: buildingHeight, bevelEnabled: false }]} />
-      <meshStandardMaterial color="lightgreen" />
+      <meshStandardMaterial color="lightblue" />
     </mesh>
   );
 };
