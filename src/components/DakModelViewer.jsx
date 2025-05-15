@@ -3,7 +3,6 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
-// Subcomponent die het model tekent en camera correct positioneert
 const DakModelScene = ({ dakVlakken }) => {
   const groupRef = useRef();
   const controlsRef = useRef();
@@ -12,32 +11,27 @@ const DakModelScene = ({ dakVlakken }) => {
   useEffect(() => {
     if (!groupRef.current) return;
 
-    // Bereken bounding box rond alle meshes
     const box = new THREE.Box3().setFromObject(groupRef.current);
     const center = new THREE.Vector3();
     box.getCenter(center);
     const size = new THREE.Vector3();
     box.getSize(size);
 
-    // Bereken afstand tot camera op basis van grootte
     const maxDim = Math.max(size.x, size.y, size.z);
     const fov = camera.fov * (Math.PI / 180);
     const distance = (maxDim / 2) / Math.tan(fov / 2);
 
-    // Stel camera positie in (iets verder voor marge)
-    camera.position.set(center.x, center.y, center.z + distance * 1.2);
-    camera.lookAt(center);
+    camera.position.set(0, 0, distance * 1.2);
+    camera.lookAt(0, 0, 0);
 
-    // Update OrbitControls target
     if (controlsRef.current) {
-      controlsRef.current.target.copy(center);
+      controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
     }
   }, [dakVlakken, camera]);
 
   if (!dakVlakken || dakVlakken.length === 0) return null;
 
-  // Bereken zwaartepunt voor centrering
   const allPoints = dakVlakken.flatMap(v => v.vertices);
   const modelCenter = allPoints.reduce(
     (acc, [x, y, z]) => {
@@ -58,11 +52,11 @@ const DakModelScene = ({ dakVlakken }) => {
         {dakVlakken.map((vlak, i) => {
           const gecentreerdeVertices = vlak.vertices.map(([x, y, z]) => [
             x - modelCenter.x,
-            y - modelCenter.y,
-            z - modelCenter.z
+            z - modelCenter.z,
+            -(y - modelCenter.y)
           ]);
           const vertices = new Float32Array(gecentreerdeVertices.flat());
-          const indices = new Uint16Array([0, 1, 2, 0, 2, 3]); // quad naar 2 driehoeken
+          const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
           const geometry = new THREE.BufferGeometry();
           geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
@@ -72,7 +66,6 @@ const DakModelScene = ({ dakVlakken }) => {
           return (
             <mesh key={i} geometry={geometry}>
               <meshStandardMaterial color="#ADD8E6" side={THREE.DoubleSide} />
-
             </mesh>
           );
         })}

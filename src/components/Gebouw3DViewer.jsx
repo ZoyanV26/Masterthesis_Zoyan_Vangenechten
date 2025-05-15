@@ -3,41 +3,28 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
-
-const SCALE = 0.02; // meter per "canvas unit"
-const MUUR_HOOGTE = 2.55;      // echte meterhoogte
-const MUUR_DIAMETER = 0.2;  // echte meterbreedte
-
+const SCALE = 0.02;
+const MUUR_HOOGTE = 2.55; 
+const MUUR_DIAMETER = 0.2;
 
 function Wall({ x1, y1, x2, y2, zOffset }) {
-  // schaal toepassen
   const sx1 = x1 * SCALE;
   const sy1 = y1 * SCALE;
   const sx2 = x2 * SCALE;
   const sy2 = y2 * SCALE;
-
   const dx = sx2 - sx1;
   const dy = sy2 - sy1;
   const length = Math.sqrt(dx * dx + dy * dy);
-
-  // Altijd dezelfde richting van normaal vector garanderen
   const nx = dy / length;
   const ny = -dx / length;
-
-  // Als de wand naar binnen wijst (bv. bij negatieve dx), draai dan om
   const flip = dx * ny - dy * nx < 0 ? -1 : 1;
-
   const finalNx = nx * flip;
   const finalNy = ny * flip;
-
   const half = MUUR_DIAMETER / 2;
-
-  // Vier punten in X-Y vlak (wordt straks Y -> Z)
   const p1 = [sx1 + finalNx * half, sy1 + finalNy * half];
   const p2 = [sx1 - finalNx * half, sy1 - finalNy * half];
   const p3 = [sx2 - finalNx * half, sy2 - finalNy * half];
   const p4 = [sx2 + finalNx * half, sy2 + finalNy * half];
-
   const shape = new THREE.Shape();
   shape.moveTo(p1[0], p1[1]);
   shape.lineTo(p2[0], p2[1]);
@@ -83,66 +70,39 @@ function genereer3DExport(verdiepingGegevens) {
       });
     });
 
-    data.windows?.forEach((win, index) => {
+    const openingen = [
+      { lijst: data.windows, type: "Window", kleur: "skyblue" },
+      { lijst: data.doors, type: "Door", kleur: "saddlebrown" }
+    ];
 
+    openingen.forEach(({ lijst, type }, groupIndex) => {
+      lijst?.forEach((o, index) => {
+        const dx = o.x2 - o.x1;
+        const dy = o.y2 - o.y1;
+        const lengte = Math.sqrt(dx * dx + dy * dy);
+        const ux = dx / lengte;
+        const uy = dy / lengte;
+        const xMid = (o.x1 + o.x2) / 2;
+        const yMid = (o.y1 + o.y2) / 2;
+        const cx = xMid * SCALE;
+        const cy = -yMid * SCALE;
+        const hoogte = o.hoogte || 0;
+        const afstandTotSchaallijn = o.afstandTotSchaallijn || 0;
+        const zMid = (afstandTotSchaallijn - hoogte / 2) * SCALE + zBase;
+        const halfL = (lengte * SCALE) / 2;
+        const halfH = (hoogte * SCALE) / 2;
 
-      const dx = win.x2 - win.x1;
-      const dy = win.y2 - win.y1;
-      const lengte = Math.sqrt(dx * dx + dy * dy);
-      const ux = dx / lengte;
-      const uy = dy / lengte;
-
-      const xMid = (win.x1 + win.x2) / 2;
-      const yMid = (win.y1 + win.y2) / 2;
-      const zMid = ((win.afstandTotSchaallijn || 0) - (win.hoogte || 0) / 2) * SCALE + zBase;
-
-      const halfL = (lengte * SCALE) / 2;
-      const halfH = ((win.hoogte || 0) * SCALE) / 2;
-
-      const cx = xMid * SCALE;
-      const cy = -yMid * SCALE;
-
-      exportData.push({
-        type: "Window",
-        id: `WINDOW_${verdieping}_${index}`,
-        verdieping: verdiepingIndex,
-        points: [
-          [cx - ux * halfL, zMid + halfH, cy - uy * halfL],
-          [cx + ux * halfL, zMid + halfH, cy + uy * halfL],
-          [cx + ux * halfL, zMid - halfH, cy + uy * halfL],
-          [cx - ux * halfL, zMid - halfH, cy - uy * halfL]
-        ]
-      });
-
-    });
-
-    data.doors?.forEach((door, index) => {
-      const dx = door.x2 - door.x1;
-      const dy = door.y2 - door.y1;
-      const lengte = Math.sqrt(dx * dx + dy * dy);
-      const ux = dx / lengte;
-      const uy = dy / lengte;
-
-      const xMid = (door.x1 + door.x2) / 2;
-      const yMid = (door.y1 + door.y2) / 2;
-      const zMid = ((door.afstandTotSchaallijn || 0) - (door.hoogte || 0) / 2) * SCALE + zBase;
-
-      const halfL = (lengte * SCALE) / 2;
-      const halfH = ((door.hoogte || 0) * SCALE) / 2;
-
-      const cx = xMid * SCALE;
-      const cy = -yMid * SCALE;
-
-      exportData.push({
-        type: "Door",
-        id: `DOOR_${verdieping}_${index}`,
-        verdieping: verdiepingIndex,
-        points: [
-          [cx - ux * halfL, zMid + halfH, cy - uy * halfL],
-          [cx + ux * halfL, zMid + halfH, cy + uy * halfL],
-          [cx + ux * halfL, zMid - halfH, cy + uy * halfL],
-          [cx - ux * halfL, zMid - halfH, cy - uy * halfL]
-        ]
+        exportData.push({
+          type,
+          id: `${type.toUpperCase()}_${verdieping}_${index}`,
+          verdieping: verdiepingIndex,
+          points: [
+            [cx - ux * halfL, zMid + halfH, cy - uy * halfL],
+            [cx + ux * halfL, zMid + halfH, cy + uy * halfL],
+            [cx + ux * halfL, zMid - halfH, cy + uy * halfL],
+            [cx - ux * halfL, zMid - halfH, cy - uy * halfL]
+          ]
+        });
       });
     });
 
@@ -153,9 +113,13 @@ function genereer3DExport(verdiepingGegevens) {
 
 function generateGbxml(exportData) {
   const indent = (level) => "  ".repeat(level);
-  
+
   const pointXml = (p, level = 0) =>
-    `${indent(level)}<CartesianPoint><Coordinate>${p[0]}</Coordinate><Coordinate>${p[1]}</Coordinate><Coordinate>${p[2]}</Coordinate></CartesianPoint>`;
+    `${indent(level)}<CartesianPoint>
+${indent(level + 1)}<Coordinate>${p[0].toFixed(3)}</Coordinate>       <!-- X -->
+${indent(level + 1)}<Coordinate>${p[2].toFixed(3)}</Coordinate>       <!-- Y (was Z) -->
+${indent(level + 1)}<Coordinate>${(p[1]).toFixed(3)}</Coordinate>    <!-- Z (was -Y) -->
+${indent(level)}</CartesianPoint>`;
 
   const surfaceXml = (elem, level = 2) => {
     const surfaceType = elem.type === "Wall" ? "ExteriorWall" : elem.type;
@@ -173,25 +137,41 @@ ${indent(level)}</Surface>`;
 
   const surfacesXml = exportData.map(elem => surfaceXml(elem)).join("\n");
 
-  const xmlString = `<?xml version="1.0" encoding="UTF-8"?>
-<gbXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:noNamespaceSchemaLocation="http://www.gbxml.org/schema/6-01/GreenBuildingXML_Ver6.01.xsd"
-       version="6.01"
-       lengthUnit="Meters"
-       areaUnit="SquareMeters"
-       volumeUnit="CubicMeters"
-       temperatureUnit="C"
-       useSIUnitsForResults="true">
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gbXML
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://www.gbxml.org/schema/6-01/GreenBuildingXML_Ver6.01.xsd"
+  version="6.01"
+  lengthUnit="Meters"
+  areaUnit="SquareMeters"
+  volumeUnit="CubicMeters"
+  temperatureUnit="C"
+  useSIUnitsForResults="true">
+
   <Campus>
+    <Location>
+      <ZipOrPostalCode>0000</ZipOrPostalCode>
+    </Location>
+
     <Building id="B1" buildingType="Residential">
+      <BuildingStorey id="Storey-1" level="0">
+        <Name>Begane grond</Name>
+      </BuildingStorey>
+
+      <Space id="S1" buildingStoreyIdRef="Storey-1" zoneIdRef="Zone-1">
+        <Name>Woningruimte</Name>
+      </Space>
+
 ${surfacesXml}
+
     </Building>
+
+    <Zone id="Zone-1">
+      <Name>Zone 1</Name>
+    </Zone>
   </Campus>
 </gbXML>`;
-
-  return xmlString;
 }
-
 
 function WindowOrDoor({ x, y, width, height, zOffset, color,rotation = 0 }) {
   const sx = x * SCALE;
@@ -240,7 +220,7 @@ function createFloorShapeFromFootprint(walls) {
   if (points.length === 0) return null;
 
   const [firstX, firstY] = points[0];
-  points.push([firstX, firstY]); // zorg dat de polygoon sluit
+  points.push([firstX, firstY]);
 
   const scaledPoints = points.map(([x, y]) => new THREE.Vector2(x * SCALE, y * SCALE));
   return new THREE.Shape(scaledPoints);
@@ -248,10 +228,7 @@ function createFloorShapeFromFootprint(walls) {
 
 
 export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping }) {
-  console.log("🧱 VerdiepingGegevens ontvangen:", verdiepingGegevens);
   const [actieveVerdieping, setActieveVerdieping] = React.useState("0");
-
-  // Verzamel alle coördinaten
   const allCoords = [];
 
   Object.values(verdiepingGegevens).forEach((data) => {
@@ -266,20 +243,13 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
 
   const xs = allCoords.map(([x]) => x);
   const ys = allCoords.map(([, y]) => y);
-
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-
   const center = [(minX + maxX) / 2 * SCALE, (minY + maxY) / 2 * SCALE];
   const maxDim = Math.max(maxX - minX, maxY - minY) * SCALE;
-  console.log("maxDim =", maxDim);
-
-
-  // Camera op logische afstand
   const cameraPos = [center[0], maxDim*1.5, -center[1] - maxDim*1.5];
-
 
   return (
     <div
@@ -297,31 +267,13 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
         <button
           onClick={() => {
             const exportData = genereer3DExport(verdiepingGegevens);
-            console.log("📤 3D export voor gbXML:", exportData);
-            // Je kan dit eventueel downloaden of via API doorsturen
-          }}
-          style={{
-            padding: "6px 12px",
-            marginBottom: "10px",
-            backgroundColor: "#0066cc",
-            color: "#fff",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer"
-          }}
-        >
-          📤 Exporteer 3D model naar JSON
-        </button>
-        <button
-          onClick={() => {
-            const exportData = genereer3DExport(verdiepingGegevens);
             const gbxmlText = generateGbxml(exportData);
 
             const blob = new Blob([gbxmlText], { type: "application/xml" });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = "gebouwmodel.gbxml";
+            link.download = "gebouwmodel.xml";
             link.click();
             URL.revokeObjectURL(url);
           }}
@@ -335,7 +287,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
             cursor: "pointer"
           }}
         >
-          📁 Download gbXML-bestand
+          Download bestand voor energiesimulatie
         </button>
 
 
@@ -363,12 +315,8 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
         <directionalLight position={[5, 10, 5]} />
         <OrbitControls target={[center[0], MUUR_HOOGTE / 2, -center[1]]} />
 
-
-        {/* Global helpers */}
         <primitive object={new THREE.AxesHelper(maxDim)} />
 
-
-        {/* Gebouwgeometrie */}
         <group rotation={[Math.PI,0, 0]}>
           {Object.entries(verdiepingGegevens)
             .filter(([verdieping]) => verdieping === actieveVerdieping)
@@ -380,7 +328,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
               return (
                 <group
                   key={verdieping}
-                  rotation={[0, Math.PI, 0]} // behoud spiegeling per verdieping
+                  rotation={[0, Math.PI, 0]}
                   position={[0, 0, 0]}
                 >
                   {footprintShape && (
@@ -405,7 +353,6 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                     const geplaatsteHoogte = (afstandTotSchaallijn - hoogte / 2) * SCALE;
                     const ramenZOffset = -geplaatsteHoogte + verdiepingIndex * MUUR_HOOGTE;
 
-
                     return (
                       <WindowOrDoor
                         key={`w-${i}`}
@@ -421,6 +368,10 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                   })}
 
                   {data.doors?.map((door, i) => {
+                    const dx = door.x2 - door.x1;
+                    const dy = door.y2 - door.y1;
+                    const angle = Math.atan2(dy, dx);
+
                     const x = (door.x1 + door.x2) / 2;
                     const y = (door.y1 + door.y2) / 2;
                     const width = distance(door.x1, door.y1, door.x2, door.y2);
@@ -429,7 +380,6 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                     const afstandTotSchaallijn = (door.afstandTotSchaallijn || 0);
                     const geplaatsteHoogte = (afstandTotSchaallijn - hoogte / 2) * SCALE;
                     const deurZOffset = -geplaatsteHoogte + verdiepingIndex * MUUR_HOOGTE;
-
 
                     return (
                       <WindowOrDoor
@@ -440,6 +390,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                         height={height}
                         zOffset={deurZOffset}
                         color="saddlebrown"
+                        rotation={angle}
                       />
                     );
                   })}

@@ -2,11 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Stage, Layer, Line, Rect, Text, Group } from "react-konva";
 import proj4 from "proj4";
 
-
-
-
-
-
 const GRID_SIZE = 10;
 const SCALE = 50;
 const WALL_THICKNESS = 10;
@@ -15,7 +10,6 @@ const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 600;
 const offsetX = 0;
 const offsetY = 0;
-
 const distance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D }) {
   const [selectedWallIndex, setSelectedWallIndex] = useState(null);
@@ -27,8 +21,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
   const [stagePosition, setStagePosition] = useState({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 });
   const [verdieping, setVerdieping] = useState(0); // 0 = gelijkvloers
   const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
-
-
   const getVerdiepData = (v) => {
     const data = verdiepingGegevens[v];
     return {
@@ -38,7 +30,7 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
       doors: data?.doors || []
     };
   };
-  
+
   const getFootprintWalls = () =>
     (verdiepingGegevens[0]?.walls || []).filter(w => w.isFootprint);
   
@@ -46,7 +38,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
     const alleMuren = getVerdiepData(verdieping).walls || [];
     const footprintMuren = getFootprintWalls();
     
-    // Filter muren die niet exact overeenkomen met de footprint
     return alleMuren.filter(
       muur => !footprintMuren.some(fp =>
         fp.x1 === muur.x1 &&
@@ -57,10 +48,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
     );
   };
   
-
-  
-
-
   const gevelKoppelingen = {
     "Voorgevel": 0,
     "Achtergevel": 1,
@@ -69,7 +56,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
   };
 
   useEffect(() => {
-    console.log("gevelExportData ontvangen:", gevelExportData);
   }, [gevelExportData]);
 
   useEffect(() => {
@@ -89,7 +75,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
       proj4("EPSG:4326", "EPSG:31370", [lon, lat])
     );
 
-    // Stap 2: centreren rond (0, 0)
     const minX = Math.min(...converted.map(([x]) => x));
     const minY = Math.min(...converted.map(([, y]) => y));
     const maxX = Math.max(...converted.map(([x]) => x));
@@ -98,7 +83,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
     const centerY = (minY + maxY) / 2;
     const centered = converted.map(([x, y]) => [x - centerX, y - centerY]);
 
-    // Stap 3: bepaal de langste zijde + draaihoek
     let maxLength = 0;
     let bestAngle = 0;
     for (let i = 0; i < centered.length - 1; i++) {
@@ -109,21 +93,18 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
       const length = Math.sqrt(dx * dx + dy * dy);
       if (length > maxLength) {
         maxLength = length;
-        bestAngle = -Math.atan2(dy, dx); // roteer zodat langste zijde horizontaal
+        bestAngle = -Math.atan2(dy, dx); 
       }
     }
 
-    // Stap 4: roteer alle punten
     const rotated = centered.map(([x, y]) => {
       const newX = x * Math.cos(bestAngle) - y * Math.sin(bestAngle);
       const newY = x * Math.sin(bestAngle) + y * Math.cos(bestAngle);
       return [newX, newY];
     });
 
-    // Stap 5: spiegel alles over Y-as om oriëntatie te corrigeren
     const mirrored = rotated.map(([x, y]) => [-x, y]);
 
-    // Stap 6: maak muren aan
     const newWalls = [];
     for (let i = 0; i < mirrored.length - 1; i++) {
       const [x1m, y1m] = mirrored[i];
@@ -138,7 +119,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
       });
     }
 
-    // Stap 7: opslaan in state
     setVerdiepingGegevens(prev => ({
       ...prev,
       0: {
@@ -148,13 +128,7 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
     }));
   }, [polygonFromSearch]);
 
-
-// Vervolg van component na useEffect
-
-// Vervolg van component na useEffect
-
 const snap = (val) => Math.round(val / GRID_SIZE) * GRID_SIZE;
-
 const handleClick = (e) => {
   const stage = e.target.getStage();
   const pointer = stage.getPointerPosition();
@@ -242,11 +216,9 @@ const handleClick = (e) => {
         const len = Math.sqrt(dx * dx + dy * dy);
         const ux = dx / len;
         const uy = dy / len;
-
         const vx = x - wall.x1;
         const vy = y - wall.y1;
         const dot = vx * ux + vy * uy;
-
         const clampedDot = Math.max(0, Math.min(dot, len));
         const projX = wall.x1 + ux * clampedDot;
         const projY = wall.y1 + uy * clampedDot;
@@ -263,12 +235,10 @@ const handleClick = (e) => {
 
       const elemLen = lengthMeters * SCALE;
       const { x, y, ux, uy } = clickedProjection;
-
       const x1 = x - (ux * elemLen) / 2;
       const y1 = y - (uy * elemLen) / 2;
       const x2 = x + (ux * elemLen) / 2;
       const y2 = y + (uy * elemLen) / 2;
-
       const newElem = { x1, y1, x2, y2 };
       const huidige = getVerdiepData(verdieping);
       if (mode === "addWindow") {
@@ -368,7 +338,6 @@ const floodFill = (x, y) => {
 const touchesWall = (x, y) => {
   let muren = getVerdiepData(verdieping).walls;
 
-  // ⬇️ Voeg footprintmuren toe op verdiepingen > 0
   if (verdieping > 0) {
     const footprint = getFootprintWalls();
     muren = [...muren, ...footprint];
@@ -405,11 +374,6 @@ const handleGevelToewijzing = (gevelType) => {
 
   const muur = updated[selectedWallIndex];
   projecteerPolygonenOpMuur(gevelType, muur);
-  console.log("Toegewezen gevel:", gevelType);
-  console.log("Muur:", muur);
-  console.log("Gegevens gevel:", gevelExportData?.find(g => g.gevelType === gevelType));
-  console.log("gevelExportData:", gevelExportData);
-
 
 };
 
@@ -444,13 +408,10 @@ const verwerkAlleGevels = () => {
       const minY = Math.min(...points.map(p => p.y));
       const maxY = Math.max(...points.map(p => p.y));
       const openingHoogteMeters = (maxY - minY) / pixelPerMeter;
-
-
       const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
       const ySchaallijn = (p1.y + p2.y) / 2;
       const hoogteMeters = (ySchaallijn - centerY) / pixelPerMeter;
       const verdiepingIndex = Math.floor(hoogteMeters / 3);
-
       const minX = Math.min(...points.map(p => p.x));
       const maxX = Math.max(...points.map(p => p.x));
       const breedtePx = maxX - minX;
@@ -478,7 +439,6 @@ const verwerkAlleGevels = () => {
         afstandTotSchaallijn: hoogteMeters * SCALE
       };
 
-
       if (!nieuweVerdiepData[verdiepingIndex]) {
         nieuweVerdiepData[verdiepingIndex] = { windows: [], doors: [] };
       }
@@ -505,20 +465,15 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
 
   const afbeeldingBreedte = gevel.displaySize.width;
   const afbeeldingHoogte = gevel.displaySize.height;
-
   const [p1, p2] = gevel.scaleLine;
   const x1_px = p1.x;
   const y1_px = p1.y;
   const x2_px = p2.x;
   const y2_px = p2.y;
-
   const pixelAfstand = Math.sqrt((x2_px - x1_px) ** 2 + (y2_px - y1_px) ** 2);
-
   const muurLengteCanvas = distance(muur.x1, muur.y1, muur.x2, muur.y2);
   const muurLengteMeters = muurLengteCanvas / SCALE;
-
   const pixelPerMeter = pixelAfstand / muurLengteMeters;
-
   const muurDx = muur.x2 - muur.x1;
   const muurDy = muur.y2 - muur.y1;
   const muurLen = Math.sqrt(muurDx * muurDx + muurDy * muurDy);
@@ -533,73 +488,44 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
       y: p.y * afbeeldingHoogte
     }));
   
-    // Middelpunt polygon
     const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
-  
-    // Middelpunt schaallijn
     const ySchaallijn = (p1.y + p2.y) / 2;
-  
-    // Verticale afstand tot schaallijn
     const deltaY = ySchaallijn - centerY;
     const hoogteMeters = deltaY / pixelPerMeter;
-  
-    // Verdieping bepalen
-    const standaardVerdiepingHoogte = 3;
+    const standaardVerdiepingHoogte = 2.6;
     const polyVerdieping = Math.floor(hoogteMeters / standaardVerdiepingHoogte);
-  
-    // Filter: alleen polygonen op de gekozen verdieping
+
     if (polyVerdieping !== verdieping) return;
-  
-    // Breedte in pixels en meters
+
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
     const breedtePx = maxX - minX;
     const breedteMeters = breedtePx / pixelPerMeter;
     const breedte = breedteMeters * SCALE;
-    // 🔄 Gebruik het centrum van de polygon en vergelijk met breedte van afbeelding
     const centerX = points.reduce((sum, p) => sum + p.x, 0) / points.length;
-
-    // 🧭 Corrigeer richting van muur (van links naar rechts op afbeelding!)
     const startXAfbeelding = Math.min(p1.x, p2.x);
     const endXAfbeelding = Math.max(p1.x, p2.x);
     const ratioOpAfbeelding = (centerX - startXAfbeelding) / (endXAfbeelding - startXAfbeelding);
-
-    // Altijd projectie berekenen van links naar rechts, onafhankelijk van muur-richting
     const startX = muur.x1;
     const endX = muur.x2;
     const startY = muur.y1;
     const endY = muur.y2;
-
     const muurStart = { x: startX, y: startY };
     const muurEind = { x: endX, y: endY };
-
-    // Bepaal absolute richting vector van muur
     let muurUx = muurEind.x - muurStart.x;
     let muurUy = muurEind.y - muurStart.y;
     const muurLen = Math.sqrt(muurUx * muurUx + muurUy * muurUy);
     muurUx /= muurLen;
     muurUy /= muurLen;
 
-    // Bepaal ratio op afbeelding
-    
-
-    // 🔄 Spiegel als het een voor- of achtergevel is
     const moetSpiegelen = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"].includes(gevelType);
-
     const ratioCorrected = moetSpiegelen ? 1 - ratioOpAfbeelding : ratioOpAfbeelding;
-
-    // Projecteer langs de muur
     const projectieX = muurStart.x + muurUx * (ratioCorrected * muurLen);
     const projectieY = muurStart.y + muurUy * (ratioCorrected * muurLen);
-
-
-
-  
     const x1 = projectieX - (muurUx * breedte) / 2;
     const y1 = projectieY - (muurUy * breedte) / 2;
     const x2 = projectieX + (muurUx * breedte) / 2;
     const y2 = projectieY + (muurUy * breedte) / 2;
-  
     const segment = {
       x1,
       y1,
@@ -608,7 +534,6 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
       ruimte: poly.ruimte,
     };
 
-  
     setVerdiepingGegevens(prev => {
       const huidige = prev[polyVerdieping] || { windows: [], doors: [] };
       if (poly.name === "Window") {
@@ -635,10 +560,6 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
     });
     
   });
-  
-
-
-  console.log("✅ Geprojecteerde polygonen op muur:", gevelType);
 };
 
 
@@ -647,17 +568,17 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
 
 return (
   <div>
-    <button onClick={verwerkAlleGevels} style={{ marginRight: 8 }}>📥 Laad alle geveldata</button>
+    <button onClick={verwerkAlleGevels} style={{ marginRight: 8 }}> Laad alle geveldata</button>
     <h3>🧭 Modusselectie:</h3>
-    <button onClick={() => setMode("draw")} style={{ marginRight: 8 }}>➕ Tekenmodus</button>
-    <button onClick={() => setMode("none")} style={{ marginRight: 8 }}>⛔ Stop tekenmodus</button>
-    <button onClick={() => setMode("delete")} style={{ marginRight: 8 }}>🗑️ Verwijder muur</button>
-    <button onClick={() => setMode("select")} style={{ marginRight: 8 }}>🏠 Selecteer kamer</button>
-    <button onClick={() => setMode("addWindow")} style={{ marginRight: 8 }}>🪟 Voeg ruit toe</button>
-    <button onClick={() => setMode("deleteWindow")} style={{ marginRight: 8 }}>❌ Verwijder ruit</button>
-    <button onClick={() => setMode("addDoor")} style={{ marginRight: 8 }}>🚪 Voeg deur toe</button>
-    <button onClick={() => setMode("deleteDoor")} style={{ marginRight: 8 }}>❌ Verwijder deur</button>
-    <h3>🧱 Wijs gevel toe:</h3>
+    <button onClick={() => setMode("draw")} style={{ marginRight: 8 }}>Tekenmodus</button>
+    <button onClick={() => setMode("none")} style={{ marginRight: 8 }}>Stop tekenmodus</button>
+    <button onClick={() => setMode("delete")} style={{ marginRight: 8 }}>Verwijder muur</button>
+    <button onClick={() => setMode("select")} style={{ marginRight: 8 }}>Selecteer kamer</button>
+    <button onClick={() => setMode("addWindow")} style={{ marginRight: 8 }}>Voeg ruit toe</button>
+    <button onClick={() => setMode("deleteWindow")} style={{ marginRight: 8 }}>Verwijder ruit</button>
+    <button onClick={() => setMode("addDoor")} style={{ marginRight: 8 }}>Voeg deur toe</button>
+    <button onClick={() => setMode("deleteDoor")} style={{ marginRight: 8 }}>Verwijder deur</button>
+    <h3>Wijs gevel toe:</h3>
     {["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"].map(type => (
     <button
     key={type}
@@ -668,33 +589,29 @@ return (
     </button>
     ))}
   <div style={{ marginBottom: 10 }}>
-    <label>🏢 Kies verdieping: </label>
+    <label>Verdieping: </label>
     <select value={verdieping} onChange={(e) => setVerdieping(parseInt(e.target.value))}>
       {Object.keys(verdiepingGegevens).map((v) => (
         <option key={v} value={v}>Verdieping {v}</option>
       ))}
     </select>
-
   </div>
   <button
     onClick={() => {
       const footprintWalls = verdiepingGegevens[0]?.walls?.filter(w => w.isFootprint) || [];
-
       const aangepasteVerdiepData = {};
       for (const [v, data] of Object.entries(verdiepingGegevens)) {
         aangepasteVerdiepData[v] = {
           ...data,
-          walls: [...(data.walls || []), ...(v !== "0" ? footprintWalls : [])]  // voeg enkel toe als niet gelijkvloers
+          walls: [...(data.walls || []), ...(v !== "0" ? footprintWalls : [])]
         };
       }
-
       onExport3D(aangepasteVerdiepData);
     }}
     style={{ marginBottom: 10 }}
   >
-    🔄 Toon in 3D Viewer
+    Bekijk 3D model
   </button>
-
     <Stage
       width={CANVAS_WIDTH}
       height={CANVAS_HEIGHT}
@@ -789,7 +706,6 @@ return (
           );
         })}
 
-
         {drawingWall && mousePos && (
           <Line
             points={[drawingWall.x1, drawingWall.y1, drawingWall.x2, drawingWall.y2]}
@@ -817,7 +733,6 @@ return (
             />
           </React.Fragment>
         ))}
-
 
         {getVerdiepData(verdieping).doors.map((door, i) => (
           <React.Fragment key={`door-${i}`}>

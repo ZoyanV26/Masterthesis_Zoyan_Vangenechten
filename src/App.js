@@ -17,8 +17,7 @@ function App() {
   const [dakVlakken, setDakVlakken] = useState([]);
   const [gevelData, setGevelData] = useState([]);
   const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
-  const [hoogtePerVerdieping, setHoogtePerVerdieping] = useState({ "0": 0 });  // eventueel aanpassen
-
+  const [hoogtePerVerdieping, setHoogtePerVerdieping] = useState({ "0": 0 });
   const handleSearch = async (formData) => {
     const url = `http://127.0.0.1:8000/zoek_woning?postcode=${formData.postcode}&gemeente=${formData.gemeente}&straat=${formData.straat}&huisnummer=${formData.huisnummer}`;
     try {
@@ -26,7 +25,6 @@ function App() {
       const data = await response.json();
       setWoningData(data);
     } catch (error) {
-      console.error("Fout bij API-aanroep:", error);
     }
   };
   useEffect(() => {
@@ -40,7 +38,6 @@ function App() {
     })
       .then((res) => res.json())
       .then((data) => {
-        console.log("✅ Dakvlakjes ontvangen:", data);
         setDakVlakken(data);
       })
       .catch((err) => console.error("❌ Fout bij ophalen dakmodel:", err));
@@ -51,26 +48,22 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* ✅ HEADER */}
       <header className="app-header">
         <img src={ugentLogo} alt="UGent Logo" className="ugent-logo" />
         <h1 className="app-title">3D Woningmodellering op Basis van GIS-Data</h1>
       </header>
 
-      {/* ✅ ZOEKFORMULIER */}
       <div className="search-container">
         <SearchForm onSearch={handleSearch} />
       </div>
 
-      {/* ✅ RESULTATEN EN KAART */}
       <div className="results-container">
 
         {woningData && woningData[0]?.geometry && <MapComponent geojson={woningData[0].geometry} />}
 
-        {/* ✅ 3D MODEL */}
         <div className="model-row">
           <div className="model-half">
-            <h3>🏗️ Woningvolume</h3>
+            <h3>Woningvolume</h3>
             <Canvas style={{ width: "100%", height: "500px" }}>
               <ambientLight intensity={0.5} />
               <directionalLight position={[2, 2, 2]} />
@@ -87,16 +80,10 @@ function App() {
             )}
           </div>
         </div>
-
-
-
-
-          {/* ✅ 1. GEVELANALYSE */}
           <div className="facade-analyzer-container" style={{ marginTop: "40px" }}>
             <h2>🔎 Herken Openingen in een Gevelafbeelding</h2>
             <MultiGevelAnalyzer
               onExport={(data) => {
-                console.log("📤 Geveldata doorgegeven aan Tryout:", data);
                 setGevelData(data);
               }}
             />

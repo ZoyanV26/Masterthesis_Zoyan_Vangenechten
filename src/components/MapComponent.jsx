@@ -12,11 +12,10 @@ function MapComponent({ geojson }) {
 
     useEffect(() => {
       if (geoJsonLayerRef.current) {
-        map.removeLayer(geoJsonLayerRef.current); // ✅ Oude polygoon verwijderen
+        map.removeLayer(geoJsonLayerRef.current); 
       }
-
       if (geojson) {
-        geoJsonLayerRef.current = L.geoJSON(geojson).addTo(map); // ✅ Nieuwe polygoon toevoegen
+        geoJsonLayerRef.current = L.geoJSON(geojson).addTo(map);
       }
     }, [geojson, map]);
 

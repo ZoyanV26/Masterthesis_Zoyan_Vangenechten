@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Stage, Layer, Image as KonvaImage, Line, Text, Circle, Rect } from "react-konva";
 import * as pc from "polygon-clipping";
 
-// voeg toe welke ruimten mogelijk zijn, eventueel zelf te kiezen ruimten ook
 const ruimteOpties = ["Berging","Badkamer", "Bureau","Garage","Hal","Keuken","Living","Slaapkamer","Toilet","Onbekend"];
 const gevelTypes = ["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"];
 
@@ -71,14 +70,12 @@ const MultiGevelAnalyzer = ({ onExport }) => {
       });
 
       if (!response.ok) {
-        console.log("Fout bij ophalen van Vision API (status: " + response.status + ")");
         return;
       }
 
       const result = await response.json();
       const objects = result.responses?.[0]?.localizedObjectAnnotations || [];
       if (objects.length === 0) {
-        console.log("Geen ramen of deuren gedetecteerd.");
         return;
       }
 
@@ -97,7 +94,6 @@ const MultiGevelAnalyzer = ({ onExport }) => {
 
       updateGevelField(index, "polygons", filtered);
     } catch (err) {
-      console.log("Fout bij ophalen van Vision API");
     }
   };
 
@@ -177,7 +173,7 @@ const MultiGevelAnalyzer = ({ onExport }) => {
 
   return (
     <div>
-      <h2> Multi-gevelanalyse</h2>
+      <h2> Gevel analysator</h2>
       {gevels.map((g, i) => (
         <div key={i} style={{ marginBottom: 20, border: "1px solid #ccc", padding: 10 }}>
           <h3 onClick={() => handleToggle(i)} style={{ cursor: "pointer" }}>{g.open ? "▼" : "▶"} {g.gevelType}</h3>
@@ -193,14 +189,9 @@ const MultiGevelAnalyzer = ({ onExport }) => {
                     style={{ display: "none" }}
                   />
                 )}
-                <label>Type opening: </label>
-                <select value={typeOpening} onChange={(e) => setTypeOpening(e.target.value)}>
-                  <option value="Window">Venster</option>
-                  <option value="Door">Deur</option>
-                </select>
 
-                <button onClick={() => toggleSchaalLijn(i)}>{g.schaalLijnActief ? "❌ Stop Schaallijn" : "📏 Start Schaallijn"}</button>
-                <button onClick={() => toggleTekenModus(i)}>{g.tekenActief ? "❌ Stop Tekenmodus" : "🟥 Teken venster"}</button>
+                <button onClick={() => toggleSchaalLijn(i)}>{g.schaalLijnActief ? "Stop Schaallijnmodus":"Start Schaallijnmodus"}</button>
+                <button onClick={() => toggleTekenModus(i)}>{g.tekenActief ? "Stop Tekenmodus" : "Start Tekenmodus"}</button>
 
                 {g.imageURL && g.imageElement && (
                   <Stage width={g.displaySize.width} height={g.displaySize.height} onClick={(e) => handleCanvasClick(e, i)}>
@@ -216,7 +207,7 @@ const MultiGevelAnalyzer = ({ onExport }) => {
                           <Text
                             x={p.points[0].x * g.imageElement.width * g.scale}
                             y={p.points[0].y * g.imageElement.height * g.scale - 15}
-                            text={`${p.id} – ${p.ruimte}`}
+                            text={`${p.id} – ${p.name} – ${p.ruimte}`}
                             fontSize={14} fill="black"
                           />
                         </React.Fragment>
@@ -227,20 +218,38 @@ const MultiGevelAnalyzer = ({ onExport }) => {
                   </Stage>
                 )}
                 {selectedPolygonIndex !== null && actieveGevelIndex === i && (
-                  <div>
-                    <label>Ruimte achter opening:</label>
-                    <select value={g.polygons[selectedPolygonIndex].ruimte} onChange={handleLabelChange}>
-                      {ruimteOpties.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                    </select>
-                    <button style={{ marginLeft: 10 }} onClick={handleVerwijderPolygon}>🗑️ Verwijder</button>
+                  <div style={{ marginTop: 10 }}>
+                    <div>
+                      <label>Soort opening:</label>
+                      <select
+                        value={g.polygons[selectedPolygonIndex].name}
+                        onChange={(e) => {
+                          const nieuwe = [...gevels];
+                          nieuwe[i].polygons[selectedPolygonIndex].name = e.target.value;
+                          setGevels(nieuwe);
+                        }}
+                      >
+                        <option value="Window">Ruit</option>
+                        <option value="Door">Deur</option>
+                      </select>
+                    </div>
+
+                    <div style={{ marginTop: 5 }}>
+                      <label>Ruimte achter opening:</label>
+                      <select value={g.polygons[selectedPolygonIndex].ruimte} onChange={handleLabelChange}>
+                        {ruimteOpties.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                      </select>
+                      <button style={{ marginLeft: 10 }} onClick={handleVerwijderPolygon}>Verwijder opening</button>
+                    </div>
                   </div>
                 )}
+
               </div>
             </div>
           )}
         </div>
       ))}
-      <button onClick={exportJSON}>📤 Exporteer JSON naar Tryout</button>
+      <button onClick={exportJSON}>Ik ben klaar met het herkennen van de openingen</button>
     </div>
   );
 };
