@@ -8,8 +8,7 @@ import MultiGevelAnalyzer from "./components/FacadeAnalyzer";
 import Tryout from "./components/Tryout";
 import DakModelViewer from "./components/DakModelViewer";
 import { useMemo } from "react";
-
-
+import Gebouw3DViewer from "./components/Gebouw3DViewer";
 import "./App.css";
 import ugentLogo from "./assets/UGent_logo.png";
 
@@ -17,6 +16,9 @@ function App() {
   const [woningData, setWoningData] = useState(null);
   const [dakVlakken, setDakVlakken] = useState([]);
   const [gevelData, setGevelData] = useState([]);
+  const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
+  const [hoogtePerVerdieping, setHoogtePerVerdieping] = useState({ "0": 0 });  // eventueel aanpassen
+
   const handleSearch = async (formData) => {
     const url = `http://127.0.0.1:8000/zoek_woning?postcode=${formData.postcode}&gemeente=${formData.gemeente}&straat=${formData.straat}&huisnummer=${formData.huisnummer}`;
     try {
@@ -103,10 +105,21 @@ function App() {
           {/* ✅ 2. RUITEN TEKENEN */}
           <div style={{ marginTop: "40px" }}>
             <h2>🪟 Openingen Visualiseren op het Grondplan</h2>
-            <Tryout gevelExportData={gevelData} polygonFromSearch={woningData?.[0]?.geometry?.coordinates} />
-
-
+            <Tryout
+              gevelExportData={gevelData}
+              polygonFromSearch={woningData?.[0]?.geometry?.coordinates}
+              onExport3D={setVerdiepingGegevens}
+            />
           </div>
+
+          <div style={{ marginTop: "40px" }}>
+            <h2>🏠 Volumemodel Preview</h2>
+            <Gebouw3DViewer
+              verdiepingGegevens={verdiepingGegevens}
+              hoogtePerVerdieping={hoogtePerVerdieping}
+            />
+          </div>
+
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ const offsetX = 0;
 const offsetY = 0;
 
 const distance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-export default function Tryout({ gevelExportData, polygonFromSearch }) {
+export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D }) {
   const [selectedWallIndex, setSelectedWallIndex] = useState(null);
   const [drawingWall, setDrawingWall] = useState(null);
   const [mousePos, setMousePos] = useState(null);
@@ -96,7 +96,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch }) {
     const maxY = Math.max(...converted.map(([, y]) => y));
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
-
     const centered = converted.map(([x, y]) => [x - centerX, y - centerY]);
 
     // Stap 3: bepaal de langste zijde + draaihoek
@@ -442,6 +441,10 @@ const verwerkAlleGevels = () => {
         x: p.x * afbeeldingBreedte,
         y: p.y * afbeeldingHoogte
       }));
+      const minY = Math.min(...points.map(p => p.y));
+      const maxY = Math.max(...points.map(p => p.y));
+      const openingHoogteMeters = (maxY - minY) / pixelPerMeter;
+
 
       const centerY = points.reduce((sum, p) => sum + p.y, 0) / points.length;
       const ySchaallijn = (p1.y + p2.y) / 2;
@@ -465,7 +468,16 @@ const verwerkAlleGevels = () => {
       const y1 = projectieY - (muurDy * breedte) / 2;
       const x2 = projectieX + (muurDx * breedte) / 2;
       const y2 = projectieY + (muurDy * breedte) / 2;
-      const segment = { x1, y1, x2, y2, ruimte: poly.ruimte  };
+      const segment = {
+        x1,
+        y1,
+        x2,
+        y2,
+        ruimte: poly.ruimte,
+        hoogte: openingHoogteMeters * SCALE,
+        afstandTotSchaallijn: hoogteMeters * SCALE
+      };
+
 
       if (!nieuweVerdiepData[verdiepingIndex]) {
         nieuweVerdiepData[verdiepingIndex] = { windows: [], doors: [] };
@@ -588,7 +600,14 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
     const x2 = projectieX + (muurUx * breedte) / 2;
     const y2 = projectieY + (muurUy * breedte) / 2;
   
-    const segment = { x1, y1, x2, y2, ruimte: poly.ruimte};
+    const segment = {
+      x1,
+      y1,
+      x2,
+      y2,
+      ruimte: poly.ruimte,
+    };
+
   
     setVerdiepingGegevens(prev => {
       const huidige = prev[polyVerdieping] || { windows: [], doors: [] };
@@ -657,7 +676,9 @@ return (
     </select>
 
   </div>
-
+  <button onClick={() => onExport3D(verdiepingGegevens)} style={{ marginBottom: 10 }}>
+    🔄 Toon in 3D Viewer
+  </button>
     <Stage
       width={CANVAS_WIDTH}
       height={CANVAS_HEIGHT}
