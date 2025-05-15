@@ -676,9 +676,25 @@ return (
     </select>
 
   </div>
-  <button onClick={() => onExport3D(verdiepingGegevens)} style={{ marginBottom: 10 }}>
+  <button
+    onClick={() => {
+      const footprintWalls = verdiepingGegevens[0]?.walls?.filter(w => w.isFootprint) || [];
+
+      const aangepasteVerdiepData = {};
+      for (const [v, data] of Object.entries(verdiepingGegevens)) {
+        aangepasteVerdiepData[v] = {
+          ...data,
+          walls: [...(data.walls || []), ...(v !== "0" ? footprintWalls : [])]  // voeg enkel toe als niet gelijkvloers
+        };
+      }
+
+      onExport3D(aangepasteVerdiepData);
+    }}
+    style={{ marginBottom: 10 }}
+  >
     🔄 Toon in 3D Viewer
   </button>
+
     <Stage
       width={CANVAS_WIDTH}
       height={CANVAS_HEIGHT}
