@@ -1,115 +1,109 @@
-import React, { useState, useEffect } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import SearchForm from "./components/SearchForm";
-import MapComponent from "./components/MapComponent";
-import BuildingModel from "./components/BuildingModel";
-import MultiGevelAnalyzer from "./components/FacadeAnalyzer";
-import Tryout from "./components/Tryout";
-import DakModelViewer from "./components/DakModelViewer";
-import { useMemo } from "react";
-import Gebouw3DViewer from "./components/Gebouw3DViewer";
-import "./App.css";
-import ugentLogo from "./assets/UGent_logo.png";
+        {[...Array(1001).keys()].map((i) => {
+          const pos = (i - 500) * GRID_SIZE;
+          return (
+            <Group key={`grid-group-${i}`}>
+              <Line points={[pos, -100000, pos, 100000]} stroke="#eee" strokeWidth={1} />
+              <Line points={[-100000, pos, 100000, pos]} stroke="#eee" strokeWidth={1} />
+            </Group>
+          );
+        })}
 
-function App() {
-  const [woningData, setWoningData] = useState(null);
-  const [dakVlakken, setDakVlakken] = useState([]);
-  const [gevelData, setGevelData] = useState([]);
-  const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
-  const [hoogtePerVerdieping, setHoogtePerVerdieping] = useState({ "0": 0 });
-  const handleSearch = async (formData) => {
-    const url = `http://127.0.0.1:8000/zoek_woning?postcode=${formData.postcode}&gemeente=${formData.gemeente}&straat=${formData.straat}&huisnummer=${formData.huisnummer}`;
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      setWoningData(data);
-    } catch (error) {
-    }
-  };
-  useEffect(() => {
-    const polygon = woningData?.[0]?.geometry?.coordinates?.[0];
-    if (!polygon) return;
-
-    fetch("http://localhost:8001/api/dakmodel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ polygon })
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setDakVlakken(data);
-      })
-      .catch((err) => console.error("❌ Fout bij ophalen dakmodel:", err));
-  }, [woningData]);
-
-  const geojson = useMemo(() => woningData?.[0]?.geometry, [woningData]);
-  const hnMax = woningData?.[0]?.HN_MAX;
-
-  return (
-    <div className="app-container">
-      <header className="app-header">
-        <img src={ugentLogo} alt="UGent Logo" className="ugent-logo" />
-        <h1 className="app-title">3D Woningmodellering op Basis van GIS-Data</h1>
-      </header>
-
-      <div className="search-container">
-        <SearchForm onSearch={handleSearch} />
-      </div>
-
-      <div className="results-container">
-
-        {woningData && woningData[0]?.geometry && <MapComponent geojson={woningData[0].geometry} />}
-
-        <div className="model-row">
-          <div className="model-half">
-            <h3>Woningvolume</h3>
-            <Canvas style={{ width: "100%", height: "500px" }}>
-              <ambientLight intensity={0.5} />
-              <directionalLight position={[2, 2, 2]} />
-              <OrbitControls />
-              {woningData && woningData[0]?.geometry && (
-                <BuildingModel geojson={geojson} hnMax={hnMax} />
-              )}
-            </Canvas>
-          </div>
-          <div className="model-half">
-            <h3>⛰️ Dakanalyse</h3>
-            {dakVlakken && dakVlakken.length > 0 && (
-              <DakModelViewer dakVlakken={dakVlakken} />
-            )}
-          </div>
-        </div>
-          <div className="facade-analyzer-container" style={{ marginTop: "40px" }}>
-            <h2>🔎 Herken Openingen in een Gevelafbeelding</h2>
-            <MultiGevelAnalyzer
-              onExport={(data) => {
-                setGevelData(data);
-              }}
+        {getVerdiepData(verdieping).rooms.map((room, i) => (
+          <React.Fragment key={i}>
+            {room.map((cell, j) => (
+              <Rect
+                key={j}
+                x={cell.x - GRID_SIZE / 2 - 1}
+                y={cell.y - GRID_SIZE / 2 - 1}
+                width={GRID_SIZE + 2}
+                height={GRID_SIZE + 2}
+                fill="#aad7ff"
+              />
+            ))}
+            <Text
+              text={`Ruimte ${i + 1}`}
+              x={room[0].x - 25}
+              y={room[0].y - 10}
+              fontSize={14}
+              fill="#0077ff"
             />
-          </div>
+          </React.Fragment>
+        ))}
 
-          {/* ✅ 2. RUITEN TEKENEN */}
-          <div style={{ marginTop: "40px" }}>
-            <h2>🪟 Openingen Visualiseren op het Grondplan</h2>
-            <Tryout
-              gevelExportData={gevelData}
-              polygonFromSearch={woningData?.[0]?.geometry?.coordinates}
-              onExport3D={setVerdiepingGegevens}
+        {[...getFootprintWalls(), ...getInteriorWalls()].map((wall, index) => {
+          const dx = wall.x2 - wall.x1;
+          const dy = wall.y2 - wall.y1;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          const ux = dx / len;
+          const uy = dy / len;
+          const x1 = wall.x1 - ux * WALL_OVERSHOOT;
+          const y1 = wall.y1 - uy * WALL_OVERSHOOT;
+          const x2 = wall.x2 + ux * WALL_OVERSHOOT;
+          const y2 = wall.y2 + uy * WALL_OVERSHOOT;
+          const midX = (wall.x1 + wall.x2) / 2;
+          const midY = (wall.y1 + wall.y2) / 2;
+
+          return (
+            <Group key={`wall-${index}`}>
+              <Line
+                points={[x1, y1, x2, y2]}
+                stroke={selectedWallIndex === index ? "#0077ff" : "black"}
+                strokeWidth={WALL_THICKNESS}
+                onClick={() => setSelectedWallIndex(index)}
+              />
+              <Text
+                text={`${wall.length} m`}
+                x={midX + 20}
+                y={midY -30}
+                fontSize={15}
+                fill="#666"
+              />
+            </Group>
+          );
+        })}
+
+        {drawingWall && mousePos && (
+          <Line
+            points={[drawingWall.x1, drawingWall.y1, drawingWall.x2, drawingWall.y2]}
+            stroke="#aaa"
+            strokeWidth={2}
+            dash={[4, 4]}
+          />
+        )}
+
+        {getVerdiepData(verdieping).windows.map((win, i) => (
+          <React.Fragment key={`win-${i}`}>
+            <Line
+              points={[win.x1, win.y1, win.x2, win.y2]}
+              stroke="blue"
+              strokeWidth={WALL_THICKNESS}
             />
-          </div>
+            <Text
+              x={(win.x1 + win.x2) / 2-30}
+              y={(win.y1 + win.y2) / 2 +30}
+              fontSize={15}
+              text={win.ruimte ? '  ' + win.ruimte : ''}
+              fill="blue"
+              align="center"
 
-          <div style={{ marginTop: "40px" }}>
-            <h2>🏠 Volumemodel Preview</h2>
-            <Gebouw3DViewer
-              verdiepingGegevens={verdiepingGegevens}
-              hoogtePerVerdieping={hoogtePerVerdieping}
             />
-          </div>
+          </React.Fragment>
+        ))}
 
-      </div>
-    </div>
-  );
-}
-
-export default App;
+        {getVerdiepData(verdieping).doors.map((door, i) => (
+          <React.Fragment key={`door-${i}`}>
+            <Line
+              points={[door.x1, door.y1, door.x2, door.y2]}
+              stroke="red"
+              strokeWidth={WALL_THICKNESS}
+            />
+            <Text
+              x={(door.x1 + door.x2) / 2 -20}
+              y={(door.y1 + door.y2) / 2 + 12}
+              fontSize={15}
+              text={door.ruimte ? '  ' + door.ruimte : ''}
+              fill="red"
+              allign="center"
+            />
+          </React.Fragment>
+        ))}

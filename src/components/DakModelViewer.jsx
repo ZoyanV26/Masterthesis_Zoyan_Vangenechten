@@ -77,7 +77,7 @@ const DakModelScene = ({ dakVlakken }) => {
 
 const DakModelViewer = ({ dakVlakken }) => {
   return (
-    <div style={{ width: "100%", height: "500px", marginTop: "20px" }}>
+    <div style={{ width: "100%", height: "100%"}}>
       <Canvas camera={{ position: [0, 0, 200], fov: 60 }}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[2, 2, 5]} />

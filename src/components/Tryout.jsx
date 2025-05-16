@@ -6,11 +6,29 @@ const GRID_SIZE = 10;
 const SCALE = 50;
 const WALL_THICKNESS = 10;
 const WALL_OVERSHOOT = 5;
-const CANVAS_WIDTH = 1200;
+const CANVAS_WIDTH = 1156;
 const CANVAS_HEIGHT = 600;
 const offsetX = 0;
 const offsetY = 0;
 const distance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+
+function verwijderDubbeleMuren(muren) {
+  const uniek = [];
+  const gezien = new Set();
+
+  for (const m of muren) {
+    const key1 = `${m.x1},${m.y1},${m.x2},${m.y2}`;
+    const key2 = `${m.x2},${m.y2},${m.x1},${m.y1}`;
+    if (!gezien.has(key1) && !gezien.has(key2)) {
+      uniek.push(m);
+      gezien.add(key1);
+      gezien.add(key2);
+    }
+  }
+
+  return uniek;
+}
+
 export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D }) {
   const [selectedWallIndex, setSelectedWallIndex] = useState(null);
   const [drawingWall, setDrawingWall] = useState(null);
@@ -22,14 +40,17 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
   const [verdieping, setVerdieping] = useState(0); // 0 = gelijkvloers
   const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
   const getVerdiepData = (v) => {
-    const data = verdiepingGegevens[v];
+    const data = verdiepingGegevens[v] || {};
+    const isVerdieping0 = v === 0;
+    const footprintWalls = verdiepingGegevens[0]?.walls?.filter(w => w.isFootprint) || [];
     return {
-      walls: data?.walls || [],
-      rooms: data?.rooms || [],
-      windows: data?.windows || [],
-      doors: data?.doors || []
+      walls: isVerdieping0 ? (data.walls || []) : [...footprintWalls, ...(data.walls || [])],
+      rooms: data.rooms || [],
+      windows: data.windows || [],
+      doors: data.doors || []
     };
   };
+
 
   const getFootprintWalls = () =>
     (verdiepingGegevens[0]?.walls || []).filter(w => w.isFootprint);
@@ -273,7 +294,12 @@ const handleClick = (e) => {
         y2: y,
         length: (distance(drawingWall.x1, drawingWall.y1, x, y) / SCALE).toFixed(2)
       };
-      const nieuweWalls = [...getVerdiepData(verdieping).walls, newWall];
+      const bestaande = getVerdiepData(verdieping).walls || [];
+      const uniekeWalls = bestaande.filter(w =>
+        !(w.x1 === newWall.x1 && w.y1 === newWall.y1 && w.x2 === newWall.x2 && w.y2 === newWall.y2)
+      );
+      const nieuweWalls = [...uniekeWalls, newWall];
+
       setVerdiepingGegevens(prev => ({
         ...prev,
         [verdieping]: {
@@ -447,16 +473,24 @@ const verwerkAlleGevels = () => {
     });
   });
 
-  setVerdiepingGegevens(prev => ({
-    ...prev,
-    ...nieuweVerdiepData,
-    0: {
-      ...prev[0], // behoud bestaande footprint op gelijkvloers
-      windows: nieuweVerdiepData[0]?.windows || prev[0]?.windows || [],
-      doors: nieuweVerdiepData[0]?.doors || prev[0]?.doors || [],
-    }
-  }));
-  
+  setVerdiepingGegevens(prev => {
+    const updated = { ...prev };
+
+    Object.entries(nieuweVerdiepData).forEach(([verdieping, data]) => {
+      const vorige = prev[verdieping] || { windows: [], doors: [], walls: [] };
+
+      updated[verdieping] = {
+        ...vorige,
+        windows: [...vorige.windows, ...(data.windows || [])],
+        doors: [...vorige.doors, ...(data.doors || [])],
+        walls: vorige.walls, // ✅ NIET aanpassen!
+      };
+    });
+
+    return updated;
+  });
+
+    
 };
 
 const projecteerPolygonenOpMuur = (gevelType, muur) => {
@@ -535,7 +569,7 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
     };
 
     setVerdiepingGegevens(prev => {
-      const huidige = prev[polyVerdieping] || { windows: [], doors: [] };
+      const huidige = prev[polyVerdieping] || { windows: [], doors: [], walls: [] };
       if (poly.name === "Window") {
         return {
           ...prev,
@@ -567,51 +601,98 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
 
 
 return (
-  <div>
-    <button onClick={verwerkAlleGevels} style={{ marginRight: 8 }}> Laad alle geveldata</button>
-    <h3>🧭 Modusselectie:</h3>
-    <button onClick={() => setMode("draw")} style={{ marginRight: 8 }}>Tekenmodus</button>
-    <button onClick={() => setMode("none")} style={{ marginRight: 8 }}>Stop tekenmodus</button>
-    <button onClick={() => setMode("delete")} style={{ marginRight: 8 }}>Verwijder muur</button>
-    <button onClick={() => setMode("select")} style={{ marginRight: 8 }}>Selecteer kamer</button>
-    <button onClick={() => setMode("addWindow")} style={{ marginRight: 8 }}>Voeg ruit toe</button>
-    <button onClick={() => setMode("deleteWindow")} style={{ marginRight: 8 }}>Verwijder ruit</button>
-    <button onClick={() => setMode("addDoor")} style={{ marginRight: 8 }}>Voeg deur toe</button>
-    <button onClick={() => setMode("deleteDoor")} style={{ marginRight: 8 }}>Verwijder deur</button>
-    <h3>Wijs gevel toe:</h3>
-    {["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"].map(type => (
-    <button
-    key={type}
-    onClick={() => handleGevelToewijzing(type)}
-    style={{ marginRight: 8 }}
-    >
-    {type}
-    </button>
-    ))}
-  <div style={{ marginBottom: 10 }}>
-    <label>Verdieping: </label>
-    <select value={verdieping} onChange={(e) => setVerdieping(parseInt(e.target.value))}>
-      {Object.keys(verdiepingGegevens).map((v) => (
-        <option key={v} value={v}>Verdieping {v}</option>
-      ))}
-    </select>
-  </div>
-  <button
-    onClick={() => {
-      const footprintWalls = verdiepingGegevens[0]?.walls?.filter(w => w.isFootprint) || [];
-      const aangepasteVerdiepData = {};
-      for (const [v, data] of Object.entries(verdiepingGegevens)) {
-        aangepasteVerdiepData[v] = {
-          ...data,
-          walls: [...(data.walls || []), ...(v !== "0" ? footprintWalls : [])]
-        };
-      }
-      onExport3D(aangepasteVerdiepData);
-    }}
-    style={{ marginBottom: 10 }}
-  >
-    Bekijk 3D model
-  </button>
+  <>
+    <div style={{ marginBottom: "20px", fontFamily: "Arial, sans-serif" }}>
+      {/* Geveltoewijzing */}
+      <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#333" }}>1. Wijs geveltype toe aan geselecteerde muur</h3>
+      <div style={{ marginBottom: "20px" }}>
+        {["Voorgevel", "Achtergevel", "Zijgevel Links", "Zijgevel Rechts"].map(type => (
+          <button
+            key={type}
+            onClick={() => handleGevelToewijzing(type)}
+            style={{
+              padding: "8px 16px",
+              marginRight: "10px",
+              marginBottom: "10px",
+              backgroundColor: "#004085",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+
+      {/* Gegevens laden */}
+      <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#333" }}>2. Importeren van geveldata</h3>
+      <div style={{ marginBottom: "20px" }}>
+        <button
+          onClick={verwerkAlleGevels}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#006400",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}
+        >
+          Importeer openingen vanuit gevelanalyse
+        </button>
+      </div>
+
+      {/* Tools */}
+      <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#333" }}>3. Teken- en bewerktools</h3>
+      <div style={{ marginBottom: "20px" }}>
+        {[
+          { mode: "draw", label: "Teken muur" },
+          { mode: "none", label: "Stop tekenen" },
+          { mode: "delete", label: "Verwijder muur" },
+          { mode: "select", label: "Selecteer kamer" },
+          { mode: "addWindow", label: "Voeg ruit toe" },
+          { mode: "deleteWindow", label: "Verwijder ruit" },
+          { mode: "addDoor", label: "Voeg deur toe" },
+          { mode: "deleteDoor", label: "Verwijder deur" },
+        ].map(({ mode: m, label }) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            style={{
+              padding: "8px 12px",
+              marginRight: "10px",
+              marginBottom: "8px",
+              backgroundColor: "#007bff",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Verdieping selector */}
+      <div style={{ marginBottom: "20px" }}>
+        <label style={{ fontSize: "16px", marginRight: "8px" }}>Actieve verdieping:</label>
+        <select
+          value={verdieping}
+          onChange={(e) => setVerdieping(parseInt(e.target.value))}
+          style={{ padding: "6px 12px", fontSize: "16px" }}
+        >
+          {Object.keys(verdiepingGegevens).map((v) => (
+            <option key={v} value={v}>
+              Verdieping {v}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+    
     <Stage
       width={CANVAS_WIDTH}
       height={CANVAS_HEIGHT}
@@ -751,9 +832,35 @@ return (
             />
           </React.Fragment>
         ))}
-
       </Layer>
     </Stage>
-  </div>
+    <div style={{ marginTop: "20px", textAlign: "center" }}>
+      <button
+        onClick={() => {
+          const opgeschoond = {};
+          for (const [v, data] of Object.entries(verdiepingGegevens)) {
+            opgeschoond[v] = {
+              ...data,
+              walls: verwijderDubbeleMuren(data.walls || [])
+            };
+          }
+          onExport3D(opgeschoond);
+        }}
+
+        style={{
+          padding: "10px 20px",
+          backgroundColor: "#8B4513",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          fontSize: "16px",
+          cursor: "pointer",
+        }}
+      >
+        Toon in 3D Viewer
+      </button>
+    </div>
+
+  </>
 );
 }

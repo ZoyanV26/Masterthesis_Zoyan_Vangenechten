@@ -56,19 +56,28 @@ function genereer3DExport(verdiepingGegevens) {
     const verdiepingIndex = parseInt(verdieping);
     const zBase = verdiepingIndex * MUUR_HOOGTE;
 
-    data.walls?.forEach((w, index) => {
-      exportData.push({
-        type: "Wall",
-        id: `WALL_${verdieping}_${index}`,
-        verdieping: verdiepingIndex,
-        points: [
-          [w.x1 * SCALE, zBase, -w.y1 * SCALE],
-          [w.x2 * SCALE, zBase, -w.y2 * SCALE],
-          [w.x2 * SCALE, zBase + MUUR_HOOGTE, -w.y2 * SCALE],
-          [w.x1 * SCALE, zBase + MUUR_HOOGTE, -w.y1 * SCALE]
-        ]
-      });
+  data.walls?.forEach((w, index) => {
+    // ❌ skip als deze muur al voorkomt in een andere verdieping (footprint)
+    if (verdiepingIndex > 0 && verdiepingGegevens[0]?.walls?.some(fp =>
+      fp.x1 === w.x1 && fp.y1 === w.y1 &&
+      fp.x2 === w.x2 && fp.y2 === w.y2
+    )) {
+      return; // sla over
+    }
+
+    exportData.push({
+      type: "Wall",
+      id: `WALL_${verdieping}_${index}`,
+      verdieping: verdiepingIndex,
+      points: [
+        [w.x1 * SCALE, zBase, -w.y1 * SCALE],
+        [w.x2 * SCALE, zBase, -w.y2 * SCALE],
+        [w.x2 * SCALE, zBase + MUUR_HOOGTE, -w.y2 * SCALE],
+        [w.x1 * SCALE, zBase + MUUR_HOOGTE, -w.y1 * SCALE]
+      ]
     });
+  });
+
 
     const openingen = [
       { lijst: data.windows, type: "Window", kleur: "skyblue" },
@@ -230,6 +239,7 @@ function createFloorShapeFromFootprint(walls) {
 export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping }) {
   const [actieveVerdieping, setActieveVerdieping] = React.useState("0");
   const allCoords = [];
+  console.log(verdiepingGegevens)
 
   Object.values(verdiepingGegevens).forEach((data) => {
     data.walls?.forEach(({ x1, y1, x2, y2 }) => {
@@ -338,7 +348,6 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                   {data.walls?.map((wall, i) => (
                     <Wall key={i} {...wall} zOffset={zOffset} />
                   ))}
-
                   {data.windows?.map((win, i) => {
                     const dx = win.x2 - win.x1;
                     const dy = win.y2 - win.y1;
@@ -347,11 +356,21 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                     const x = (win.x1 + win.x2) / 2;
                     const y = (win.y1 + win.y2) / 2;
                     const width = distance(win.x1, win.y1, win.x2, win.y2);
+
                     const height = win.hoogte || 100;
-                    const hoogte = (win.hoogte || 0);
-                    const afstandTotSchaallijn = (win.afstandTotSchaallijn || 0);
-                    const geplaatsteHoogte = (afstandTotSchaallijn - hoogte / 2) * SCALE;
-                    const ramenZOffset = -geplaatsteHoogte + verdiepingIndex * MUUR_HOOGTE;
+                    const hoogte = win.hoogte || 0;
+
+                    let ramenZOffset;
+
+                    if ('afstandTotSchaallijn' in win) {
+       
+                      const afstandTotSchaallijn = win.afstandTotSchaallijn || 0;
+                      const geplaatsteHoogte = (afstandTotSchaallijn - hoogte / 2) * SCALE;
+                      ramenZOffset = -geplaatsteHoogte + verdiepingIndex * MUUR_HOOGTE;
+                    } else {
+                   
+                      ramenZOffset =0 ;
+                    }
 
                     return (
                       <WindowOrDoor
@@ -375,11 +394,21 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                     const x = (door.x1 + door.x2) / 2;
                     const y = (door.y1 + door.y2) / 2;
                     const width = distance(door.x1, door.y1, door.x2, door.y2);
+
                     const height = door.hoogte || 100;
-                    const hoogte = (door.hoogte || 0);
-                    const afstandTotSchaallijn = (door.afstandTotSchaallijn || 0);
-                    const geplaatsteHoogte = (afstandTotSchaallijn - hoogte / 2) * SCALE;
-                    const deurZOffset = -geplaatsteHoogte + verdiepingIndex * MUUR_HOOGTE;
+                    const hoogte = door.hoogte || 0;
+
+                    let deurZOffset;
+
+                    if ('afstandTotSchaallijn' in door) {
+              
+                      const afstandTotSchaallijn = door.afstandTotSchaallijn || 0;
+                      const geplaatsteHoogte = (afstandTotSchaallijn - hoogte / 2) * SCALE;
+                      deurZOffset = -geplaatsteHoogte + verdiepingIndex * MUUR_HOOGTE;
+                    } else {
+      
+                      deurZOffset = 0;
+                    }
 
                     return (
                       <WindowOrDoor
@@ -394,6 +423,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                       />
                     );
                   })}
+
                 </group>
               );
             })}
