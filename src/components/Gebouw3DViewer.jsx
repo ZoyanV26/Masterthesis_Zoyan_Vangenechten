@@ -56,28 +56,19 @@ function genereer3DExport(verdiepingGegevens) {
     const verdiepingIndex = parseInt(verdieping);
     const zBase = verdiepingIndex * MUUR_HOOGTE;
 
-  data.walls?.forEach((w, index) => {
-    // ❌ skip als deze muur al voorkomt in een andere verdieping (footprint)
-    if (verdiepingIndex > 0 && verdiepingGegevens[0]?.walls?.some(fp =>
-      fp.x1 === w.x1 && fp.y1 === w.y1 &&
-      fp.x2 === w.x2 && fp.y2 === w.y2
-    )) {
-      return; // sla over
-    }
-
-    exportData.push({
-      type: "Wall",
-      id: `WALL_${verdieping}_${index}`,
-      verdieping: verdiepingIndex,
-      points: [
-        [w.x1 * SCALE, zBase, -w.y1 * SCALE],
-        [w.x2 * SCALE, zBase, -w.y2 * SCALE],
-        [w.x2 * SCALE, zBase + MUUR_HOOGTE, -w.y2 * SCALE],
-        [w.x1 * SCALE, zBase + MUUR_HOOGTE, -w.y1 * SCALE]
-      ]
+    data.walls?.forEach((w, index) => {
+      exportData.push({
+        type: "Wall",
+        id: `WALL_${verdieping}_${index}`,
+        verdieping: verdiepingIndex,
+        points: [
+          [w.x1 * SCALE, zBase, -w.y1 * SCALE],
+          [w.x2 * SCALE, zBase, -w.y2 * SCALE],
+          [w.x2 * SCALE, zBase + MUUR_HOOGTE, -w.y2 * SCALE],
+          [w.x1 * SCALE, zBase + MUUR_HOOGTE, -w.y1 * SCALE]
+        ]
+      });
     });
-  });
-
 
     const openingen = [
       { lijst: data.windows, type: "Window", kleur: "skyblue" },

@@ -13,20 +13,20 @@ const offsetY = 0;
 const distance = (x1, y1, x2, y2) => Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 
 function verwijderDubbeleMuren(muren) {
-  const uniek = [];
+  const unieke = [];
   const gezien = new Set();
 
-  for (const m of muren) {
-    const key1 = `${m.x1},${m.y1},${m.x2},${m.y2}`;
-    const key2 = `${m.x2},${m.y2},${m.x1},${m.y1}`;
-    if (!gezien.has(key1) && !gezien.has(key2)) {
-      uniek.push(m);
-      gezien.add(key1);
-      gezien.add(key2);
+  for (const muur of muren) {
+    const sleutel1 = `${muur.x1},${muur.y1},${muur.x2},${muur.y2}`;
+    const sleutel2 = `${muur.x2},${muur.y2},${muur.x1},${muur.y1}`; // beide richtingen
+    if (!gezien.has(sleutel1) && !gezien.has(sleutel2)) {
+      unieke.push(muur);
+      gezien.add(sleutel1);
+      gezien.add(sleutel2);
     }
   }
 
-  return uniek;
+  return unieke;
 }
 
 export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D }) {
@@ -50,6 +50,7 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
       doors: data.doors || []
     };
   };
+
 
 
   const getFootprintWalls = () =>
@@ -294,12 +295,7 @@ const handleClick = (e) => {
         y2: y,
         length: (distance(drawingWall.x1, drawingWall.y1, x, y) / SCALE).toFixed(2)
       };
-      const bestaande = getVerdiepData(verdieping).walls || [];
-      const uniekeWalls = bestaande.filter(w =>
-        !(w.x1 === newWall.x1 && w.y1 === newWall.y1 && w.x2 === newWall.x2 && w.y2 === newWall.y2)
-      );
-      const nieuweWalls = [...uniekeWalls, newWall];
-
+      const nieuweWalls = [...getVerdiepData(verdieping).walls, newWall];
       setVerdiepingGegevens(prev => ({
         ...prev,
         [verdieping]: {
@@ -473,24 +469,16 @@ const verwerkAlleGevels = () => {
     });
   });
 
-  setVerdiepingGegevens(prev => {
-    const updated = { ...prev };
-
-    Object.entries(nieuweVerdiepData).forEach(([verdieping, data]) => {
-      const vorige = prev[verdieping] || { windows: [], doors: [], walls: [] };
-
-      updated[verdieping] = {
-        ...vorige,
-        windows: [...vorige.windows, ...(data.windows || [])],
-        doors: [...vorige.doors, ...(data.doors || [])],
-        walls: vorige.walls, // ✅ NIET aanpassen!
-      };
-    });
-
-    return updated;
-  });
-
-    
+  setVerdiepingGegevens(prev => ({
+    ...prev,
+    ...nieuweVerdiepData,
+    0: {
+      ...prev[0], // behoud bestaande footprint op gelijkvloers
+      windows: nieuweVerdiepData[0]?.windows || prev[0]?.windows || [],
+      doors: nieuweVerdiepData[0]?.doors || prev[0]?.doors || [],
+    }
+  }));
+  
 };
 
 const projecteerPolygonenOpMuur = (gevelType, muur) => {
@@ -569,7 +557,7 @@ const projecteerPolygonenOpMuur = (gevelType, muur) => {
     };
 
     setVerdiepingGegevens(prev => {
-      const huidige = prev[polyVerdieping] || { windows: [], doors: [], walls: [] };
+      const huidige = prev[polyVerdieping] || { windows: [], doors: [] };
       if (poly.name === "Window") {
         return {
           ...prev,
@@ -836,17 +824,16 @@ return (
     </Stage>
     <div style={{ marginTop: "20px", textAlign: "center" }}>
       <button
-        onClick={() => {
-          const opgeschoond = {};
-          for (const [v, data] of Object.entries(verdiepingGegevens)) {
-            opgeschoond[v] = {
-              ...data,
-              walls: verwijderDubbeleMuren(data.walls || [])
-            };
-          }
-          onExport3D(opgeschoond);
-        }}
-
+          onClick={() => {
+            const opgeschoond = {};
+            for (const [v, data] of Object.entries(verdiepingGegevens)) {
+              opgeschoond[v] = {
+                ...data,
+                walls: verwijderDubbeleMuren(data.walls || [])
+              };
+            }
+            onExport3D(opgeschoond);
+          }}
         style={{
           padding: "10px 20px",
           backgroundColor: "#8B4513",
