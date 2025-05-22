@@ -12,7 +12,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-shapefile_path = "C:/Users/Zoyan/Documents/Thesis/Programmeren/vs2/shapefiles/testing.shp"
+shapefile_path = #zelf in te vullen
 gdf = gpd.read_file(shapefile_path)
 if gdf.crs != "EPSG:4326":
     gdf = gdf.to_crs(epsg=4326)

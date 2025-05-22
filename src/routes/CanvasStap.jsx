@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Tryout from "../components/Tryout";
+import Tryout from "../components/TekenComponent";
 
 export default function CanvasStap({ gevelExportData, polygonFromSearch, onExport3D }) {
   const navigate = useNavigate();
@@ -20,7 +20,6 @@ export default function CanvasStap({ gevelExportData, polygonFromSearch, onExpor
         fontFamily: "Arial, sans-serif",
       }}
     >
-      {/* Algemene uitleg bovenaan */}
       <section style={{ marginBottom: "30px" }}>
         <h2 style={{ fontSize: "26px", fontWeight: "600", color: "#333" }}>
           Openingen visualiseren op het grondplan
@@ -41,7 +40,6 @@ export default function CanvasStap({ gevelExportData, polygonFromSearch, onExpor
         </p>
       </section>
 
-      {/* Canvas- en tekentool */}
       <div
         style={{
           background: "#fff",
@@ -58,7 +56,6 @@ export default function CanvasStap({ gevelExportData, polygonFromSearch, onExpor
         />
       </div>
 
-      {/* Volgende stap knop */}
       <div style={{ marginTop: "20px", textAlign: "center" }}>
         <button
           onClick={() => navigate("/model")}

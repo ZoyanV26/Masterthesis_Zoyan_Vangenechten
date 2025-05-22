@@ -1,6 +1,5 @@
-// routes/GevelStap.jsx
 import React from "react";
-import MultiGevelAnalyzer from "../components/FacadeAnalyzer";
+import MultiGevelAnalyzer from "../components/GevelComponent";
 import { useNavigate } from "react-router-dom";
 
 export default function GevelStap({ onExportGevels }) {
@@ -8,7 +7,6 @@ export default function GevelStap({ onExportGevels }) {
 
   return (
     <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "40px 24px", fontFamily: "Arial, sans-serif" }}>
-      {/* Algemene instructie bovenaan */}
       <section style={{ marginBottom: "30px" }}>
         <h2 style={{ fontSize: "26px", fontWeight: "600", color: "#333" }}>Openingen detecteren in gevelbeelden</h2>
         <p style={{ fontSize: "16px", lineHeight: "1.6", color: "#555" }}>
@@ -30,7 +28,6 @@ export default function GevelStap({ onExportGevels }) {
         <MultiGevelAnalyzer onExport={onExportGevels} />
       </div>
 
-      {/* Volgende stap knop */}
       <div style={{ marginTop: "20px", textAlign: "center" }}>
         <button
           onClick={() => navigate("/canvas")}

@@ -1,8 +1,7 @@
-// routes/KaartStap.jsx
 import React from "react";
-import MapComponent from "../components/MapComponent";
-import BuildingModel from "../components/BuildingModel";
-import DakModelViewer from "../components/DakModelViewer";
+import MapComponent from "../components/KaartComponent";
+import BuildingModel from "../components/3DComponentBasis";
+import DakModelViewer from "../components/DakComponent";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { useNavigate } from "react-router-dom";
@@ -21,7 +20,6 @@ export default function KaartStap({ woningData, dakVlakken }) {
       padding: "40px 24px",
       fontFamily: "Arial, sans-serif"
     }}>
-      {/* Algemene uitleg bovenaan */}
       <section style={{ marginBottom: "30px" }}>
         <h2 style={{
           fontSize: "26px",
@@ -37,13 +35,10 @@ export default function KaartStap({ woningData, dakVlakken }) {
           Indien dit correct is, kan je doorgaan naar de gevelanalyse.
         </p>
       </section>
-
-      {/* Kaart */}
       <div style={{ marginBottom: "30px" }}>
         <MapComponent geojson={geojson} />
       </div>
 
-      {/* 3D Volume en Dak */}
       <div className="model-row" style={{
         display: "flex",
         flexDirection: "row",
@@ -82,7 +77,6 @@ export default function KaartStap({ woningData, dakVlakken }) {
           </div>
         </div>
 
-
         <div className="model-half" style={{
           width: "100%",
           maxWidth: "550px",
@@ -109,7 +103,6 @@ export default function KaartStap({ woningData, dakVlakken }) {
         </div>
       </div>
 
-      {/* Volgende stap knop */}
       <div style={{ marginTop: "40px", textAlign: "center" }}>
         <button
           onClick={() => navigate("/gevels")}

@@ -1,6 +1,5 @@
-// routes/ModelStap.jsx
 import React from "react";
-import Gebouw3DViewer from "../components/Gebouw3DViewer";
+import Gebouw3DViewer from "../components/3DComponentEind";
 
 export default function ModelStap({ verdiepingGegevens, hoogtePerVerdieping }) {
   return (
@@ -14,7 +13,6 @@ export default function ModelStap({ verdiepingGegevens, hoogtePerVerdieping }) {
         roteren en eventueel het bestand exporteren voor gebruik in energiesimulaties.
       </p>
 
-      {/* 3D Viewer */}
       <Gebouw3DViewer
         verdiepingGegevens={verdiepingGegevens}
         hoogtePerVerdieping={hoogtePerVerdieping}

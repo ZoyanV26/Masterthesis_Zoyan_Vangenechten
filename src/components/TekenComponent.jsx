@@ -18,11 +18,11 @@ function verwijderDubbeleMuren(muren) {
 
   for (const muur of muren) {
     const sleutel1 = `${muur.x1},${muur.y1},${muur.x2},${muur.y2}`;
-    const sleutel2 = `${muur.x2},${muur.y2},${muur.x1},${muur.y1}`; // beide richtingen
+    const sleutel2 = `${muur.x2},${muur.y2},${muur.x1},${muur.y1}`;
     if (!gezien.has(sleutel1) && !gezien.has(sleutel2)) {
       unieke.push(muur);
       gezien.add(sleutel1);
-      gezien.add(sleutel2);
+      gezien.add(sleutel2);7
     }
   }
 
@@ -37,7 +37,7 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
   const [mode, setMode] = useState("none");
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 });
-  const [verdieping, setVerdieping] = useState(0); // 0 = gelijkvloers
+  const [verdieping, setVerdieping] = useState(0); 
   const [verdiepingGegevens, setVerdiepingGegevens] = useState({});
   const getVerdiepData = (v) => {
     const data = verdiepingGegevens[v] || {};
@@ -50,8 +50,6 @@ export default function Tryout({ gevelExportData, polygonFromSearch, onExport3D 
       doors: data.doors || []
     };
   };
-
-
 
   const getFootprintWalls = () =>
     (verdiepingGegevens[0]?.walls || []).filter(w => w.isFootprint);
@@ -370,7 +368,6 @@ const touchesWall = (x, y) => {
   );
 };
 
-
 const pointToSegment = (px, py, x1, y1, x2, y2) => {
   const A = px - x1;
   const B = py - y1;
@@ -396,7 +393,6 @@ const handleGevelToewijzing = (gevelType) => {
 
   const muur = updated[selectedWallIndex];
   projecteerPolygonenOpMuur(gevelType, muur);
-
 };
 
 const verwerkAlleGevels = () => {
@@ -473,7 +469,7 @@ const verwerkAlleGevels = () => {
     ...prev,
     ...nieuweVerdiepData,
     0: {
-      ...prev[0], // behoud bestaande footprint op gelijkvloers
+      ...prev[0],
       windows: nieuweVerdiepData[0]?.windows || prev[0]?.windows || [],
       doors: nieuweVerdiepData[0]?.doors || prev[0]?.doors || [],
     }
@@ -614,7 +610,6 @@ return (
         ))}
       </div>
 
-      {/* Gegevens laden */}
       <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#333" }}>2. Importeren van geveldata</h3>
       <div style={{ marginBottom: "20px" }}>
         <button
@@ -632,7 +627,6 @@ return (
         </button>
       </div>
 
-      {/* Tools */}
       <h3 style={{ fontSize: "18px", marginBottom: "8px", color: "#333" }}>3. Teken- en bewerktools</h3>
       <div style={{ marginBottom: "20px" }}>
         {[
@@ -664,7 +658,6 @@ return (
         ))}
       </div>
 
-      {/* Verdieping selector */}
       <div style={{ marginBottom: "20px" }}>
         <label style={{ fontSize: "16px", marginRight: "8px" }}>Actieve verdieping:</label>
         <select
@@ -844,10 +837,9 @@ return (
           cursor: "pointer",
         }}
       >
-        Toon in 3D Viewer
+        Toon in het model in 3D
       </button>
     </div>
-
   </>
 );
 }

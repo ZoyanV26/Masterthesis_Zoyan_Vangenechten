@@ -4,8 +4,8 @@ import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
 const SCALE = 0.02;
-const MUUR_HOOGTE = 2.55; 
-const MUUR_DIAMETER = 0.2;
+const MUUR_HOOGTE = 2.8; 
+const MUUR_DIAMETER = 0.3;
 
 function Wall({ x1, y1, x2, y2, zOffset }) {
   const sx1 = x1 * SCALE;
@@ -43,7 +43,7 @@ function Wall({ x1, y1, x2, y2, zOffset }) {
 
   return (
     <mesh geometry={geometry} position={[0, zOffset - MUUR_HOOGTE, 0]}>
-      <meshStandardMaterial color="lightgray" />
+      <meshStandardMaterial color="#f0f0f0" />
     </mesh>
   );
 }
@@ -199,12 +199,11 @@ function FloorPlateFromShape({ shape, zOffset }) {
     <mesh position={[0, zOffset + 0.001, 0]}>
 
       <primitive object={geometry} attach="geometry" />
-      <meshStandardMaterial color="#e0e0e0" side={THREE.DoubleSide} />
+      <meshStandardMaterial color="#f7f7f7" side={THREE.DoubleSide} />
 
     </mesh>
   );
 }
-
 
 function createFloorShapeFromFootprint(walls) {
   if (!walls || !Array.isArray(walls) || walls.length === 0) {
@@ -225,7 +224,6 @@ function createFloorShapeFromFootprint(walls) {
   const scaledPoints = points.map(([x, y]) => new THREE.Vector2(x * SCALE, y * SCALE));
   return new THREE.Shape(scaledPoints);
 }
-
 
 export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping }) {
   const [actieveVerdieping, setActieveVerdieping] = React.useState("0");
@@ -311,12 +309,11 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
       </div>
 
       <Canvas camera={{ position: cameraPos, fov: 40, near: 0.1, far: 100000 }}>
-
         <ambientLight intensity={0.5} />
         <directionalLight position={[5, 10, 5]} />
         <OrbitControls target={[center[0], MUUR_HOOGTE / 2, -center[1]]} />
 
-        <primitive object={new THREE.AxesHelper(maxDim)} />
+  
 
         <group rotation={[Math.PI,0, 0]}>
           {Object.entries(verdiepingGegevens)
@@ -348,7 +345,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                     const y = (win.y1 + win.y2) / 2;
                     const width = distance(win.x1, win.y1, win.x2, win.y2);
 
-                    const height = win.hoogte || 100;
+                    const height = win.hoogte || 70;
                     const hoogte = win.hoogte || 0;
 
                     let ramenZOffset;
@@ -360,7 +357,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                       ramenZOffset = -geplaatsteHoogte + verdiepingIndex * MUUR_HOOGTE;
                     } else {
                    
-                      ramenZOffset =0 ;
+                      ramenZOffset =-0.6 ;
                     }
 
                     return (
@@ -371,7 +368,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                         width={width}
                         height={height}
                         zOffset={ramenZOffset}
-                        color="skyblue"
+                        color="#a3c9f1"
                         rotation={angle}
                       />
                     );
@@ -409,7 +406,7 @@ export default function Gebouw3DViewer({ verdiepingGegevens, hoogtePerVerdieping
                         width={width}
                         height={height}
                         zOffset={deurZOffset}
-                        color="saddlebrown"
+                        color="#d2a679"
                         rotation={angle}
                       />
                     );
