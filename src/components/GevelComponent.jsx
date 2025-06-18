@@ -51,7 +51,7 @@ const MultiGevelAnalyzer = ({ onExport }) => {
   };
 
   const detectObjects = async (base64, index) => {
-    const apiKey = "AIzaSyCykFA-cBRlVs3EKMXSvDxSG4ZdcBOvD8U";
+    const apiKey = "zelf in te vullen";
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
     const body = {
       requests: [
